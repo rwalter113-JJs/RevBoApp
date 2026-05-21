@@ -1,0 +1,31 @@
+# ── Xcode user data (machine-specific, changes constantly) ───────────────────
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+
+# ── Build artefacts ───────────────────────────────────────────────────────────
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ── Swift Package Manager ─────────────────────────────────────────────────────
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.build/
+Packages/
+Package.resolved
+
+# ── CocoaPods (not used, but just in case) ────────────────────────────────────
+Pods/
+
+# ── macOS clutter ─────────────────────────────────────────────────────────────
+.DS_Store
+*.DS_Store
+Thumbs.db
+
+# ── Secrets (should never exist here, belt-and-suspenders) ───────────────────
+*.env
+Secrets.swift
+APIKeys.swift

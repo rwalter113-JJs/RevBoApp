@@ -1,0 +1,146 @@
+import Foundation
+
+// MARK: - Pipeline Response (mirrors Python RevBoResult)
+
+struct RevBoResult: Codable {
+    let scrubbed_text:   String
+    let firmographics:   [[String: String]]
+    let confirmation:    [String]
+    let audit:           PipelineAudit
+    // Emails detected pre-scrub — returned so the client can hash locally
+    // and match against the on-device contact registry (Signal 1).
+    let detected_emails: [String]?   // raw emails for client-side hash matching
+    let detected_names:  [String]?   // PERSON names from Presidio NER for client-side matching
+}
+
+struct PipelineAudit: Codable {
+    let pii_detected: [String]
+    let pii_removed: Bool
+    let firmographics_enriched: Bool
+    let brain_id: String
+    let raw_data_purged: Bool
+}
+
+// MARK: - Brain Query (raw notes — /v1/brain/query)
+
+struct BrainQueryRequest: Codable {
+    let query_text: String
+    let filter_metadata: [String: String]?
+    let n_results: Int
+}
+
+struct BrainQueryResponse: Codable {
+    let results: [BrainResult]
+    let count: Int
+}
+
+struct BrainResult: Codable, Identifiable {
+    var id: String { text }
+    let text: String
+    let metadata: [String: String]
+    let relevance_score: Double
+}
+
+// MARK: - Brain Ask (synthesised coaching — /v1/brain/ask)
+
+struct BrainAskRequest: Codable {
+    let query_text: String
+    let filter_metadata: [String: String]?
+    let n_results: Int
+}
+
+struct CoachingTip: Codable, Identifiable {
+    var id: Int { number }
+    let number: Int
+    let tip: String
+    let rationale: String
+}
+
+struct BrainSynthesis: Codable {
+    let experience_summary:   String
+    let patterns:             [String]
+    let tips:                 [CoachingTip]
+    let coaching_response:    String
+    let data_confidence:      String          // "High" | "Medium" | "Low"
+    let sources_used:         Int
+    let sources_found:        Int
+    let total_relevant_count: Int
+    let industry_breakdown:   [String: Int]
+}
+
+// MARK: - Listen Response
+
+struct ListenResult: Codable {
+    let transcript: String
+    let result: RevBoResult?
+}
+
+// MARK: - Contact Attribution  (PRD 3)
+
+struct ContactSummaryRequest: Codable {
+    let contact_hash: String
+    let display_name: String?
+    let n_results: Int
+
+    init(contactHash: String, displayName: String? = nil, nResults: Int = 20) {
+        self.contact_hash = contactHash
+        self.display_name = displayName
+        self.n_results    = nResults
+    }
+}
+
+/// Server response for /v1/brain/contact/summary
+/// Same shape as BrainSynthesis + record_count.
+struct ContactSummaryResponse: Codable {
+    let experience_summary:   String
+    let patterns:             [String]
+    let tips:                 [CoachingTip]
+    let coaching_response:    String
+    let data_confidence:      String
+    let sources_used:         Int
+    let sources_found:        Int
+    let total_relevant_count: Int
+    let industry_breakdown:   [String: Int]
+    let record_count:         Int
+}
+
+/// Server response for GET /v1/brain/contact/stats/{hash}
+struct ContactStatsResponse: Codable {
+    let contact_hash:        String
+    let record_count:        Int
+    let first_seen:          String?    // ISO-8601
+    let last_seen:           String?    // ISO-8601
+    let industry_breakdown:  [String: Int]
+    let bucket_breakdown:    [String: Int]
+    let data_confidence:     String
+}
+
+struct ContactAttachRequest: Codable {
+    let brain_id:               String
+    let contact_hash:           String
+    let attribution_method:     String
+    let attribution_confidence: String
+
+    init(brainId: String, contactHash: String,
+         method: String = "manual", confidence: String = "confirmed") {
+        self.brain_id               = brainId
+        self.contact_hash           = contactHash
+        self.attribution_method     = method
+        self.attribution_confidence = confidence
+    }
+}
+
+struct ContactAttachResponse: Codable {
+    let brain_id: String
+    let status:   String    // "attached" | "not_found"
+}
+
+struct ContactDeleteRequest: Codable {
+    let contact_hash: String
+}
+
+struct ContactDeleteResponse: Codable {
+    let contact_hash:    String
+    let records_deleted: Int
+    let status:          String   // "deleted" | "not_found"
+}
