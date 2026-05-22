@@ -257,6 +257,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSAppTransportSecurity = "{NSAllowsLocalNetworking = YES; }";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "RevBo reads your upcoming meetings so you can see which contacts are already in your Brain and prepare before each call.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Rev​Bo uses the camera to scan notes, pictures and decks.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Rev​Bo reads your contacts to automatically attribute notes, voice recordings, and scanned files to the right person.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Rev​Bo uses the microphone to capture voice notes.";
@@ -293,6 +294,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSAppTransportSecurity = "{NSAllowsLocalNetworking = YES; }";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "RevBo reads your upcoming meetings so you can see which contacts are already in your Brain and prepare before each call.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Rev​Bo uses the camera to scan notes, pictures and decks.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Rev​Bo reads your contacts to automatically attribute notes, voice recordings, and scanned files to the right person.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Rev​Bo uses the microphone to capture voice notes.";
