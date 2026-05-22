@@ -113,7 +113,7 @@ struct QuickDictateView: View {
     }
 
     private func upload(_ url: URL?) async {
-        guard let url else { return }
+        guard let url, !isUploading else { return }
         isUploading = true
         defer { isUploading = false }
         do {

@@ -26,6 +26,7 @@ struct NewNoteView: View {
 
     // Text-mode state
     @State private var noteText = ""
+    @State private var isProcessing = false     // guard against double-submission
     @FocusState private var fieldFocused: Bool
 
     // Voice-mode state
@@ -191,7 +192,7 @@ struct NewNoteView: View {
                 label: "Scrub & Store in Brain",
                 icon: "brain.head.profile",
                 disabled: noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                loading: false
+                loading: isProcessing
             ) {
                 Task { await storeText() }
             }
@@ -401,7 +402,9 @@ struct NewNoteView: View {
 
     private func storeText() async {
         let trimmed = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, !isProcessing else { return }
+        isProcessing = true
+        defer { isProcessing = false }
         fieldFocused = false
         do {
             let r = try await api.processText(
@@ -426,7 +429,7 @@ struct NewNoteView: View {
     // MARK: - Store (voice)
 
     private func uploadVoice(_ url: URL?) async {
-        guard let url else { return }
+        guard let url, !isUploading else { return }
         isUploading = true
         defer { isUploading = false }
         do {
