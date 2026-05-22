@@ -107,8 +107,7 @@ final class CalendarSyncService: ObservableObject {
         // Refresh available calendars list
         let ekCals = ekStore.calendars(for: .event)
         availableCalendars = ekCals.map { cal in
-            let cgCol  = cal.cgColor
-            let uiCol  = UIColor(cgColor: cgCol)
+            let uiCol = cal.cgColor.map { UIColor(cgColor: $0) } ?? UIColor.systemOrange
             return CalendarItem(id: cal.calendarIdentifier, title: cal.title, color: Color(uiColor: uiCol))
         }
 
