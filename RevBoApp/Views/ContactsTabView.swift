@@ -225,13 +225,32 @@ private struct ContactRowCard: View {
                 Text(contact.displayName)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
-                HStack(spacing: 6) {
-                    Image(systemName: signalIcon)
-                        .font(.caption2)
-                        .foregroundStyle(.gray)
-                    Text(signalLabel)
-                        .font(.caption)
-                        .foregroundStyle(.gray)
+
+                // Show enriched title + company if available, else signal label
+                if let title = contact.enrichment?.title, !title.isEmpty {
+                    let company = contact.enrichment?.employment
+                        .first(where: { $0.current })?.company
+                        ?? contact.enrichment?.employment.first?.company
+                    if let company, !company.isEmpty {
+                        Text("\(title) · \(company)")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.55))
+                            .lineLimit(1)
+                    } else {
+                        Text(title)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.55))
+                            .lineLimit(1)
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: signalIcon)
+                            .font(.caption2)
+                            .foregroundStyle(.gray)
+                        Text(signalLabel)
+                            .font(.caption)
+                            .foregroundStyle(.gray)
+                    }
                 }
             }
 
@@ -588,22 +607,40 @@ private struct ContactHeroCard: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.white)
 
-                // Contact details from address book
-                VStack(alignment: .leading, spacing: 3) {
-                    if let company = contact.company {
-                        Label(company, systemImage: "building.2")
-                            .font(.caption)
-                            .foregroundStyle(.gray)
+                // Enriched title + company (preferred over address book if available)
+                if let title = contact.enrichment?.title, !title.isEmpty {
+                    let currentCompany = contact.enrichment?.employment
+                        .first(where: { $0.current })?.company
+                        ?? contact.enrichment?.employment.first?.company
+                        ?? contact.company
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.85))
+                        if let company = currentCompany, !company.isEmpty {
+                            Label(company, systemImage: "building.2")
+                                .font(.caption)
+                                .foregroundStyle(Color.revboOrange.opacity(0.8))
+                        }
                     }
-                    if let email = contact.email {
-                        Label(email, systemImage: "envelope")
-                            .font(.caption)
-                            .foregroundStyle(.gray)
-                    }
-                    if let phone = contact.phone {
-                        Label(phone, systemImage: "phone")
-                            .font(.caption)
-                            .foregroundStyle(.gray)
+                } else {
+                    // Fall back to address book details
+                    VStack(alignment: .leading, spacing: 3) {
+                        if let company = contact.company {
+                            Label(company, systemImage: "building.2")
+                                .font(.caption)
+                                .foregroundStyle(.gray)
+                        }
+                        if let email = contact.email {
+                            Label(email, systemImage: "envelope")
+                                .font(.caption)
+                                .foregroundStyle(.gray)
+                        }
+                        if let phone = contact.phone {
+                            Label(phone, systemImage: "phone")
+                                .font(.caption)
+                                .foregroundStyle(.gray)
+                        }
                     }
                 }
 
