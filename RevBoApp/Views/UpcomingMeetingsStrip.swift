@@ -14,7 +14,8 @@ struct UpcomingMeetingsStrip: View {
     // Sheet state
     @State private var selectedContact: TrackedContact?
     @State private var addAttendeeName: String?
-    @State private var showAddContact = false
+    @State private var showAddContact    = false
+    @State private var showCalendarPicker = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -29,6 +30,26 @@ struct UpcomingMeetingsStrip: View {
                     .foregroundStyle(Color.revboMuted)
                     .tracking(1.2)
                 Spacer()
+
+                // Calendar filter button — only show once we have access
+                if cal.authStatus == .fullAccess || cal.authStatus == .authorized {
+                    Button {
+                        showCalendarPicker = true
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                                .font(.system(size: 13))
+                            if !cal.selectedCalendarIDs.isEmpty {
+                                Text("\(cal.selectedCalendarIDs.count)")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                        }
+                        .foregroundStyle(cal.selectedCalendarIDs.isEmpty
+                                         ? Color.revboMuted
+                                         : Color.revboOrange)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 20)
 
@@ -62,6 +83,12 @@ struct UpcomingMeetingsStrip: View {
                 ContactsTabView(autoOpenPicker: true)
             }
             .presentationDetents([.large])
+        }
+        // Calendar picker sheet
+        .sheet(isPresented: $showCalendarPicker) {
+            CalendarPickerSheet(service: cal)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -135,6 +162,74 @@ struct UpcomingMeetingsStrip: View {
             .font(.caption)
             .foregroundStyle(Color.revboSubtle)
             .padding(.horizontal, 20)
+    }
+}
+
+// MARK: - Calendar Picker Sheet
+
+private struct CalendarPickerSheet: View {
+
+    @ObservedObject var service: CalendarSyncService
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(service.availableCalendars) { item in
+                        Button {
+                            service.toggleCalendar(item.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(item.color)
+                                    .frame(width: 12, height: 12)
+                                Text(item.title)
+                                    .foregroundStyle(Color.primary)
+                                Spacer()
+                                if service.isSelected(item.id) {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Color.revboOrange)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } footer: {
+                    Text("Showing meetings from \(activeCount) of \(service.availableCalendars.count) calendars.")
+                        .font(.caption)
+                }
+            }
+            .navigationTitle("Calendars")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Color.revboOrange)
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Show All") {
+                        // Clear selection → all calendars shown
+                        for item in service.availableCalendars {
+                            if !service.selectedCalendarIDs.isEmpty {
+                                service.selectedCalendarIDs.removeAll()
+                            }
+                        }
+                        UserDefaults.standard.removeObject(forKey: "revbo.selectedCalendarIDs")
+                        Task { await service.fetch() }
+                    }
+                    .foregroundStyle(Color.revboMuted)
+                    .disabled(service.selectedCalendarIDs.isEmpty)
+                }
+            }
+        }
+    }
+
+    private var activeCount: Int {
+        service.selectedCalendarIDs.isEmpty
+            ? service.availableCalendars.count
+            : service.selectedCalendarIDs.count
     }
 }
 
