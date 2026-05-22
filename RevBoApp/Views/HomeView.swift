@@ -93,7 +93,12 @@ struct HomeView: View {
                             QuickCaptureButton(symbol: "mic.fill",          label: "Listen") { navPath.append(Route.listen) }
                         }
                         .padding(.top, 24)
-                        .padding(.bottom, 48)
+
+                        // ── Upcoming meetings ─────────────────────────────────
+                        UpcomingMeetingsStrip()
+                            .padding(.top, 28)
+
+                        Spacer(minLength: 48)
                     }
                 }
             }
