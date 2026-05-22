@@ -530,7 +530,11 @@ struct ContactDetailView: View {
         defer { isLoading = false }
         do {
             synthesis = try await api.contactSummary(
-                ContactSummaryRequest(contactHash: contact.hash)
+                ContactSummaryRequest(
+                    contactHash: contact.hash,
+                    displayName: currentContact.displayName,
+                    enrichment:  currentContact.enrichment
+                )
             )
         } catch {
             errorMessage = error.localizedDescription
@@ -690,6 +694,105 @@ struct ContactInsightCard: View {
     let synthesis: ContactSummaryResponse
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+
+            // ── Part 1: Personal ─────────────────────────────────────────────
+            PersonalContextCard(synthesis: synthesis)
+
+            // ── Part 2: Professional ─────────────────────────────────────────
+            ProfessionalBriefCard(synthesis: synthesis)
+        }
+    }
+}
+
+// MARK: - Personal Context Card
+
+private struct PersonalContextCard: View {
+    let synthesis: ContactSummaryResponse
+
+    private var hasPersonal: Bool {
+        !synthesis.personal_highlights.isEmpty ||
+        synthesis.personal_summary != "No personal context captured yet."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "person.fill.checkmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.black)
+                    .padding(6)
+                    .background(Color(hex: "#4B9CD3"))
+                    .clipShape(Circle())
+                Text("PERSONAL")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Color(hex: "#4B9CD3"))
+                    .tracking(1.2)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            Divider().background(Color(hex: "#4B9CD3").opacity(0.2))
+
+            if hasPersonal {
+                VStack(alignment: .leading, spacing: 10) {
+                    // Bullet highlights
+                    if !synthesis.personal_highlights.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(synthesis.personal_highlights, id: \.self) { fact in
+                                HStack(alignment: .top, spacing: 10) {
+                                    Circle()
+                                        .fill(Color(hex: "#4B9CD3"))
+                                        .frame(width: 5, height: 5)
+                                        .padding(.top, 6)
+                                    Text(fact)
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(.white.opacity(0.88))
+                                }
+                            }
+                        }
+                    }
+                    // Rapport summary
+                    if !synthesis.personal_summary.isEmpty {
+                        Text(synthesis.personal_summary)
+                            .font(.system(size: 13))
+                            .italic()
+                            .foregroundStyle(.gray)
+                    }
+                }
+                .padding(14)
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.caption)
+                        .foregroundStyle(.gray)
+                    Text("No personal context logged yet — note a sports team, family detail or personal interest next time.")
+                        .font(.caption)
+                        .foregroundStyle(.gray)
+                }
+                .padding(14)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(hex: "#4B9CD3").opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color(hex: "#4B9CD3").opacity(0.25), lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Professional Brief Card
+
+private struct ProfessionalBriefCard: View {
+    let synthesis: ContactSummaryResponse
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 8) {
@@ -699,40 +802,47 @@ struct ContactInsightCard: View {
                     .padding(6)
                     .background(Color.revboOrange)
                     .clipShape(Circle())
-                Text("RELATIONSHIP BRIEF")
+                Text("PROFESSIONAL")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(Color.revboOrange)
                     .tracking(1.2)
                 Spacer()
             }
             .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-
-            // Experience summary
-            Text(synthesis.experience_summary)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.revboOrange)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
 
             Divider().background(Color.revboOrange.opacity(0.25))
 
+            // Professional summary
+            if !synthesis.professional_summary.isEmpty {
+                Text(synthesis.professional_summary)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .lineSpacing(3)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+
+                Divider().background(Color.revboOrange.opacity(0.15))
+            }
+
             // Patterns
             if !synthesis.patterns.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 8) {
                     Label("Relationship Patterns", systemImage: "waveform.path.ecg")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.gray)
                     ForEach(Array(synthesis.patterns.enumerated()), id: \.offset) { _, p in
                         HStack(alignment: .top, spacing: 10) {
-                            Circle().fill(Color.revboOrange).frame(width: 6, height: 6).padding(.top, 6)
-                            Text(p).font(.system(size: 14)).foregroundStyle(.white.opacity(0.9))
+                            Circle().fill(Color.revboOrange).frame(width: 5, height: 5).padding(.top, 6)
+                            Text(p).font(.system(size: 14)).foregroundStyle(.white.opacity(0.88))
                         }
                     }
                 }
-                .padding(16)
-                Divider().background(Color.revboOrange.opacity(0.25))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider().background(Color.revboOrange.opacity(0.15))
             }
 
             // Tips
@@ -745,14 +855,15 @@ struct ContactInsightCard: View {
                         ContactTipRow(tip: tip)
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.revboOrange.opacity(0.07))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(Color.revboOrange.opacity(0.30), lineWidth: 1)
                 )
         )

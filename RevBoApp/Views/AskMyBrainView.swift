@@ -189,7 +189,8 @@ struct AskMyBrainView: View {
                 let result = try await api.contactSummary(
                     ContactSummaryRequest(
                         contactHash: contact.hash,
-                        displayName: contact.displayName
+                        displayName: contact.displayName,
+                        enrichment:  contact.enrichment
                     )
                 )
                 withAnimation {

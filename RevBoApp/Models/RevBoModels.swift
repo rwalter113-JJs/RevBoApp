@@ -77,22 +77,66 @@ struct ListenResult: Codable {
 
 // MARK: - Contact Attribution  (PRD 3)
 
-struct ContactSummaryRequest: Codable {
-    let contact_hash: String
-    let display_name: String?
-    let n_results: Int
+/// Apollo enrichment snapshot sent with each contact summary request.
+/// Lets the backend produce Apollo-aware tips without storing PII server-side.
+struct ApolloProfilePayload: Codable {
+    let title:      String?
+    let company:    String?
+    let seniority:  String?
+    let location:   String?
+    let employment: [ApolloJobPayload]
 
-    init(contactHash: String, displayName: String? = nil, nResults: Int = 20) {
+    struct ApolloJobPayload: Codable {
+        let title:      String
+        let company:    String
+        let start_date: String
+        let end_date:   String
+        let current:    Bool
+    }
+}
+
+struct ContactSummaryRequest: Codable {
+    let contact_hash:   String
+    let display_name:   String?
+    let n_results:      Int
+    let apollo_profile: ApolloProfilePayload?
+
+    init(contactHash: String,
+         displayName: String? = nil,
+         nResults: Int = 20,
+         enrichment: ContactEnrichment? = nil) {
         self.contact_hash = contactHash
         self.display_name = displayName
         self.n_results    = nResults
+        if let e = enrichment {
+            self.apollo_profile = ApolloProfilePayload(
+                title:      e.title,
+                company:    e.employment.first(where: { $0.current })?.company
+                            ?? e.employment.first?.company,
+                seniority:  e.seniority,
+                location:   e.location,
+                employment: e.employment.prefix(5).map {
+                    ApolloProfilePayload.ApolloJobPayload(
+                        title:      $0.title,
+                        company:    $0.company,
+                        start_date: $0.startDate,
+                        end_date:   $0.endDate,
+                        current:    $0.current
+                    )
+                }
+            )
+        } else {
+            self.apollo_profile = nil
+        }
     }
 }
 
 /// Server response for /v1/brain/contact/summary
-/// Same shape as BrainSynthesis + record_count.
 struct ContactSummaryResponse: Codable {
     let experience_summary:   String
+    let personal_highlights:  [String]  // bullet facts: family, sports, hobbies
+    let personal_summary:     String    // 1-2 sentence personal rapport narrative
+    let professional_summary: String    // career + deal recap (Apollo-informed)
     let patterns:             [String]
     let tips:                 [CoachingTip]
     let coaching_response:    String
