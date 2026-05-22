@@ -1,3 +1,4 @@
+import EventKit
 import SwiftUI
 
 // MARK: - Upcoming Meetings Strip

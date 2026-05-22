@@ -1,3 +1,4 @@
+import Combine
 import EventKit
 import Foundation
 import SwiftUI
@@ -98,8 +99,7 @@ final class CalendarSyncService: ObservableObject {
                 .map { $0 }
 
             // Calendar colour → SwiftUI Color
-            let cal = event.calendar
-            let cgCol = cal.cgColor
+            let cgCol = event.calendar?.cgColor
             let uiCol = cgCol.map { UIColor(cgColor: $0) } ?? UIColor.systemOrange
             let swiftCol = Color(uiColor: uiCol)
 
