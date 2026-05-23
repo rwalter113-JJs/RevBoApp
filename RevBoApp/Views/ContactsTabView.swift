@@ -339,8 +339,10 @@ struct ContactDetailView: View {
     @StateObject private var api   = RevBoAPI()
 
     @State private var synthesis:        ContactSummaryResponse?
+    @State private var signals:          ContactSignals?
     @State private var isLoading         = false
     @State private var isEnriching       = false
+    @State private var loadingSignals    = false
     @State private var showDeleteConfirm = false
     @State private var deleteInProgress  = false
     @State private var showNewNote       = false
@@ -448,6 +450,13 @@ struct ContactDetailView: View {
                         NoRecordsCard()
                     }
 
+                    // ── Public signals card ───────────────────────────────────
+                    PublicSignalsCard(
+                        signals: $signals,
+                        isLoading: $loadingSignals,
+                        onRefresh: { Task { await fetchSignals() } }
+                    )
+
                     Spacer(minLength: 32)
 
                     // ── Delete button ────────────────────────────────────────
@@ -503,9 +512,11 @@ struct ContactDetailView: View {
         .task {
             // Always refresh stats on appear so count is never stale
             await refreshStats()
-            if currentContact.recordCount > 0 {
-                await loadSynthesis()
-            }
+            async let synthTask: () = {
+                if currentContact.recordCount > 0 { await loadSynthesis() }
+            }()
+            async let signalsTask: () = fetchSignals()
+            _ = await (synthTask, signalsTask)
         }
     }
 
@@ -550,6 +561,24 @@ struct ContactDetailView: View {
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Fetch recent public signals (LinkedIn posts, news, Twitter/X) for this contact.
+    private func fetchSignals() async {
+        guard !loadingSignals else { return }
+        loadingSignals = true
+        defer { loadingSignals = false }
+        let linkedInUrl = currentContact.enrichment?.linkedinUrl
+        let company     = currentContact.company
+            ?? currentContact.enrichment?.employment.first(where: { $0.current })?.company
+            ?? currentContact.enrichment?.employment.first?.company
+        if let result = try? await api.fetchSignals(
+            name:        currentContact.displayName,
+            linkedInUrl: linkedInUrl,
+            company:     company
+        ) {
+            signals = result
         }
     }
 

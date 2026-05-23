@@ -188,3 +188,41 @@ struct ContactDeleteResponse: Codable {
     let records_deleted: Int
     let status:          String   // "deleted" | "not_found"
 }
+
+// MARK: - Public Signals  (/v1/contact/signals)
+
+struct ContactSignals: Codable {
+    let linkedin_posts: [SignalPost]
+    let news:           [NewsItem]
+    let twitter:        [TweetItem]
+    let fetched_at:     String
+
+    var isEmpty: Bool { linkedin_posts.isEmpty && news.isEmpty && twitter.isEmpty }
+}
+
+struct SignalPost: Codable, Identifiable {
+    var id: String { url.isEmpty ? text : url }
+    let text:     String
+    let date:     String
+    let url:      String
+    let likes:    Int
+    let comments: Int
+}
+
+struct NewsItem: Codable, Identifiable {
+    var id: String { url }
+    let title:        String
+    let source:       String
+    let url:          String
+    let published_at: String
+    let description:  String
+}
+
+struct TweetItem: Codable, Identifiable {
+    var id: String { url.isEmpty ? text : url }
+    let text:       String
+    let created_at: String
+    let url:        String
+    let likes:      Int
+    let retweets:   Int
+}

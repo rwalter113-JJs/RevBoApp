@@ -214,6 +214,24 @@ final class RevBoAPI: ObservableObject {
         return try await send(request)
     }
 
+    /// Fetch recent public signals (LinkedIn posts, news, Twitter) for a contact.
+    func fetchSignals(name: String, linkedInUrl: String?, company: String?) async throws -> ContactSignals {
+        let url = try endpoint("/v1/contact/signals")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        struct SignalsRequest: Encodable {
+            let name: String
+            let linkedin_url: String?
+            let company: String?
+        }
+        request.httpBody = try JSONEncoder().encode(
+            SignalsRequest(name: name, linkedin_url: linkedInUrl, company: company)
+        )
+        return try await send(request)
+    }
+
     /// Enrich a contact via Apollo + Proxycurl (backend call — keys stay server-side).
     func enrichContact(name: String, email: String?, company: String?) async throws -> ContactEnrichment? {
         let url = try endpoint("/v1/contact/enrich")
