@@ -18,6 +18,9 @@ struct HomeView: View {
     // ── Recorder (voice query from home bar) ──────────────────────────────────
     @StateObject private var recorder  = AudioRecorder()
 
+    // ── Onboarding ────────────────────────────────────────────────────────────
+    @StateObject private var onboarding = OnboardingService.shared
+
     // ── Routes ────────────────────────────────────────────────────────────────
     enum Route: Hashable {
         case contacts
@@ -74,6 +77,20 @@ struct HomeView: View {
                         instructionStrip
                             .padding(.horizontal, 20)
                             .padding(.top, 10)
+
+                        // ── Onboarding welcome card ───────────────────────────
+                        if !onboarding.hasSeenOnboarding {
+                            OnboardingWelcomeCard(service: onboarding)
+                                .padding(.horizontal, 20)
+                                .padding(.top, 8)
+                        }
+
+                        // ── Daily nudge card ──────────────────────────────────
+                        if onboarding.isNudgePeriodActive {
+                            DailyNudgeCard(service: onboarding)
+                                .padding(.horizontal, 20)
+                                .padding(.top, onboarding.hasSeenOnboarding ? 8 : 0)
+                        }
 
                         // ── Primary cards ─────────────────────────────────────
                         HStack(spacing: 14) {
