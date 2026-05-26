@@ -226,3 +226,48 @@ struct TweetItem: Codable, Identifiable {
     let likes:      Int
     let retweets:   Int
 }
+
+// MARK: - Meeting Prep  (/v1/meeting/prep)
+
+struct MeddicItem: Codable {
+    let status: String   // "found" | "partial" | "missing"
+    let notes: String?
+}
+
+struct MeddicBant: Codable {
+    let metrics: MeddicItem
+    let economic_buyer: MeddicItem
+    let decision_criteria: MeddicItem
+    let decision_process: MeddicItem
+    let identify_pain: MeddicItem
+    let champion: MeddicItem
+    let budget: MeddicItem
+    let timeline: MeddicItem
+}
+
+struct TrackedContactPrep: Codable, Identifiable {
+    var id: String { contact_hash }
+    let contact_hash: String
+    let name: String
+    let personal_snapshot: String
+    let professional_snapshot: String
+    let meddic: MeddicBant
+    let suggested_questions: [String]
+    let has_brain_data: Bool
+}
+
+struct MeetingPrepResponse: Codable {
+    let meeting_title: String
+    let tracked_contacts: [TrackedContactPrep]
+    let untracked_names: [String]
+}
+
+struct MeetingPrepRequest: Codable {
+    struct AttendeeInput: Codable {
+        let contact_hash: String?
+        let name: String
+        let is_tracked: Bool
+    }
+    let meeting_title: String
+    let attendees: [AttendeeInput]
+}

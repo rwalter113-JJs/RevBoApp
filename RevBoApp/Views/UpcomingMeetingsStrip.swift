@@ -12,10 +12,11 @@ struct UpcomingMeetingsStrip: View {
     @ObservedObject private var store = ContactAttributionStore.shared
 
     // Sheet state
-    @State private var selectedContact: TrackedContact?
-    @State private var addAttendeeName: String?
-    @State private var showAddContact    = false
+    @State private var selectedContact:   TrackedContact?
+    @State private var addAttendeeName:   String?
+    @State private var showAddContact     = false
     @State private var showCalendarPicker = false
+    @State private var selectedMeeting:   UpcomingMeeting?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -90,6 +91,22 @@ struct UpcomingMeetingsStrip: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        // Meeting prep sheet
+        .sheet(item: $selectedMeeting) { meeting in
+            NavigationStack {
+                MeetingPrepView(meeting: meeting)
+                    .navigationTitle("Meeting Brief")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbarColorScheme(.dark, for: .navigationBar)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { selectedMeeting = nil }
+                                .foregroundStyle(Color.revboOrange)
+                        }
+                    }
+            }
+            .presentationDetents([.large])
+        }
     }
 
     // MARK: - Meeting scroll
@@ -100,6 +117,9 @@ struct UpcomingMeetingsStrip: View {
                 ForEach(cal.meetings) { meeting in
                     MeetingCard(
                         meeting: meeting,
+                        onMeetingTap: { tapped in
+                            selectedMeeting = tapped
+                        },
                         onContactTap: { contact in
                             selectedContact = contact
                         },
@@ -238,61 +258,67 @@ private struct CalendarPickerSheet: View {
 private struct MeetingCard: View {
 
     let meeting:        UpcomingMeeting
+    let onMeetingTap:   (UpcomingMeeting) -> Void
     let onContactTap:   (TrackedContact) -> Void
     let onAddTap:       (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        Button {
+            onMeetingTap(meeting)
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
 
-            // Time
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(meeting.calColor)
-                    .frame(width: 5, height: 5)
-                Text(timeLabel)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.revboMuted)
-            }
-
-            // Title
-            Text(meeting.title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.revboText)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 0)
-
-            // Attendee chips
-            if meeting.attendees.isEmpty {
-                Text("No attendees")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.revboSubtle)
-            } else {
+                // Time
                 HStack(spacing: 4) {
-                    ForEach(meeting.attendees.prefix(3)) { attendee in
-                        AttendeeChip(
-                            attendee: attendee,
-                            onContactTap: onContactTap,
-                            onAddTap: onAddTap
-                        )
-                    }
-                    if meeting.attendees.count > 3 {
-                        Text("+\(meeting.attendees.count - 3)")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(Color.revboSubtle)
+                    Circle()
+                        .fill(meeting.calColor)
+                        .frame(width: 5, height: 5)
+                    Text(timeLabel)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.revboMuted)
+                }
+
+                // Title
+                Text(meeting.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.revboText)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
+
+                // Attendee chips
+                if meeting.attendees.isEmpty {
+                    Text("No attendees")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.revboSubtle)
+                } else {
+                    HStack(spacing: 4) {
+                        ForEach(meeting.attendees.prefix(3)) { attendee in
+                            AttendeeChip(
+                                attendee: attendee,
+                                onContactTap: onContactTap,
+                                onAddTap: onAddTap
+                            )
+                        }
+                        if meeting.attendees.count > 3 {
+                            Text("+\(meeting.attendees.count - 3)")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(Color.revboSubtle)
+                        }
                     }
                 }
             }
+            .padding(12)
+            .frame(width: 158, height: 100, alignment: .topLeading)
+            .background(Color.revboSurface2)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
+            )
         }
-        .padding(12)
-        .frame(width: 158, height: 100, alignment: .topLeading)
-        .background(Color.revboSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
-        )
+        .buttonStyle(.plain)
     }
 
     private var timeLabel: String {

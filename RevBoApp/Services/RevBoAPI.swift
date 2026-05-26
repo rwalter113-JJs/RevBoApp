@@ -214,6 +214,16 @@ final class RevBoAPI: ObservableObject {
         return try await send(request)
     }
 
+    /// Generate a pre-meeting prep brief (contact snapshots + MEDDIC/BANT + questions).
+    func meetingPrep(_ request: MeetingPrepRequest) async throws -> MeetingPrepResponse {
+        let url = try endpoint("/v1/meeting/prep")
+        var req = URLRequest(url: url)
+        req.httpMethod  = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody    = try JSONEncoder().encode(request)
+        return try await send(req)
+    }
+
     /// Fetch recent public signals (LinkedIn posts, news, Twitter) for a contact.
     func fetchSignals(name: String, linkedInUrl: String?, company: String?) async throws -> ContactSignals {
         let url = try endpoint("/v1/contact/signals")
