@@ -25,6 +25,7 @@ struct AskMyBrainView: View {
 
     @State private var isQuerying         = false
     @State private var errorMessage: String?
+    @State private var showLogNote        = false
     @FocusState private var fieldFocused: Bool
 
     // Snapshot the query text used for the current result
@@ -111,6 +112,13 @@ struct AskMyBrainView: View {
                         .padding(.vertical, 14)
                     }
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
+                } else if let synthesis, synthesis.empty_brain == true {
+                    // ── Empty brain state ────────────────────────────────────
+                    Spacer()
+                    EmptyBrainCard(onLogNote: { showLogNote = true })
+                        .padding(.horizontal, 24)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    Spacer()
                 } else if let synthesis {
                     // ── General brain brief ──────────────────────────────────
                     ScrollView {
@@ -157,6 +165,17 @@ struct AskMyBrainView: View {
         } message: { Text(errorMessage ?? "") }
         .animation(.easeInOut(duration: 0.35), value: synthesis != nil)
         .animation(.easeInOut(duration: 0.35), value: contactSummary != nil)
+        .sheet(isPresented: $showLogNote) {
+            NavigationStack {
+                QuickDictateView()
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Close") { showLogNote = false }
+                                .foregroundStyle(Color.revboOrange)
+                        }
+                    }
+            }
+        }
         .onAppear {
             if !initialQuery.isEmpty {
                 queryText    = initialQuery
@@ -583,6 +602,46 @@ private struct TagPill: View {
             .padding(.vertical, 3)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
+    }
+}
+
+// MARK: - Empty brain card (shown when the server reports empty_brain == true)
+
+private struct EmptyBrainCard: View {
+    let onLogNote: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "brain.head.profile")
+                .font(.system(size: 44))
+                .foregroundStyle(Color.revboOrange)
+
+            VStack(spacing: 8) {
+                Text("Your Brain is empty")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(Color.revboText)
+                    .multilineTextAlignment(.center)
+
+                Text("Start by logging a voice note after your next call, or add some notes about a contact. The more you capture, the smarter RevBo gets.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.revboMuted)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+            }
+
+            Button(action: onLogNote) {
+                Label("Log a Note", systemImage: "mic.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Color.revboOrange)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
+        .padding(24)
+        .background(Color.revboSurface2)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
 

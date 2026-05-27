@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
 
@@ -14,6 +15,11 @@ struct SettingsView: View {
     @State private var isSyncing        = false
     @State private var syncToast: String? = nil
     @State private var syncToastIsError = false
+
+    // Delete all data state
+    @State private var showDeleteConfirm = false
+    @State private var isDeleting        = false
+    @State private var deleteToast: String? = nil
 
     private let api = RevBoAPI()
 
@@ -163,6 +169,88 @@ struct SettingsView: View {
                             }
                         }
 
+                        // ── Beta Feedback ─────────────────────────────────────
+                        settingsSection(title: "BETA FEEDBACK", icon: "envelope.fill") {
+                            Button {
+                                if let url = URL(string: "mailto:feedback@revbo.ai?subject=RevBo%20Beta%20Feedback") {
+                                    UIApplication.shared.open(url)
+                                }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "envelope.fill")
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(Color.revboOrange)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Send Feedback")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color.revboText)
+                                        Text("Help us improve RevBo")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.revboMuted)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Color.revboMuted)
+                                }
+                            }
+                        }
+
+                        // ── Data ──────────────────────────────────────────────
+                        settingsSection(title: "Data", icon: "externaldrive.fill") {
+                            VStack(spacing: 0) {
+                                Button {
+                                    showDeleteConfirm = true
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "trash.fill")
+                                            .font(.system(size: 15))
+                                            .foregroundStyle(Color.red)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Delete All Brain Data")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundStyle(Color.red)
+                                            Text("Permanently removes all notes and intelligence")
+                                                .font(.caption)
+                                                .foregroundStyle(Color.revboMuted)
+                                        }
+                                        Spacer()
+                                        if isDeleting {
+                                            ProgressView()
+                                                .progressViewStyle(.circular)
+                                                .scaleEffect(0.8)
+                                        } else {
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(Color.revboMuted)
+                                        }
+                                    }
+                                }
+                                .disabled(isDeleting)
+
+                                if let toast = deleteToast {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.green)
+                                        Text(toast)
+                                            .font(.caption)
+                                            .foregroundStyle(Color.green)
+                                    }
+                                    .padding(.top, 10)
+                                    .transition(.opacity)
+                                }
+                            }
+                        }
+                        .alert("Delete All Brain Data?", isPresented: $showDeleteConfirm) {
+                            Button("Delete Everything", role: .destructive) {
+                                Task { await performDeleteAll() }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("This permanently deletes all your notes, voice recordings, and relationship intelligence from RevBo. This cannot be undone.")
+                        }
+
                         // ── Save ──────────────────────────────────────────────
                         Button {
                             save()
@@ -259,6 +347,29 @@ struct SettingsView: View {
     private func dismissToastAfterDelay() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
             withAnimation { syncToast = nil }
+        }
+    }
+
+    // MARK: - Delete All
+
+    private func performDeleteAll() async {
+        isDeleting = true
+        do {
+            let _ = try await api.deleteAllData()
+            await MainActor.run {
+                isDeleting = false
+                withAnimation { deleteToast = "Brain cleared" }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                    withAnimation { deleteToast = nil }
+                }
+            }
+        } catch {
+            await MainActor.run {
+                isDeleting = false
+                syncToast = "Delete failed — try again"
+                syncToastIsError = true
+                dismissToastAfterDelay()
+            }
         }
     }
 

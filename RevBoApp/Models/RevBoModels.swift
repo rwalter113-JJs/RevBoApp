@@ -66,6 +66,7 @@ struct BrainSynthesis: Codable {
     let sources_found:        Int
     let total_relevant_count: Int
     let industry_breakdown:   [String: Int]
+    let empty_brain:          Bool?           // true when the user has no brain data yet
 }
 
 // MARK: - Listen Response
@@ -322,4 +323,11 @@ struct CoachingAskResponse: Codable {
 struct CoachingSource: Codable {
     let doc_type: String
     let title: String
+}
+
+// MARK: - Delete All Brain Data  (DELETE /v1/brain/all)
+
+struct DeleteAllResponse: Codable {
+    let deleted: Bool
+    let message: String
 }

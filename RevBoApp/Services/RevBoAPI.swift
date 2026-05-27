@@ -430,6 +430,15 @@ final class RevBoAPI: ObservableObject {
         return try await send(request)
     }
 
+    // MARK: - Delete all brain data  (DELETE /v1/brain/all)
+
+    func deleteAllData() async throws -> DeleteAllResponse {
+        let url = try endpoint("/v1/brain/all")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        return try await send(request)
+    }
+
     // MARK: - Helpers
 
     private func endpoint(_ path: String) throws -> URL {
@@ -443,10 +452,33 @@ final class RevBoAPI: ObservableObject {
         var req = request
         // Attach the shared app API key so the server can authenticate the request
         req.setValue(AppSettings.revboAPIKey, forHTTPHeaderField: "X-RevBo-Key")
-        let (data, response) = try await URLSession.shared.data(for: req)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: req)
+        } catch let urlError as URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                throw RevBoError.networkUnavailable
+            case .timedOut:
+                throw RevBoError.timeout
+            default:
+                throw RevBoError.unknown(urlError.localizedDescription)
+            }
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw RevBoError.unknown("Invalid response")
+        }
+        switch http.statusCode {
+        case 200...299:
+            break
+        case 401:
+            throw RevBoError.invalidAPIKey
+        case 500...599:
+            throw RevBoError.serverUnavailable
+        default:
             let body = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw RevBoAPIError.serverError(body)
+            throw RevBoError.unknown(body)
         }
         return try JSONDecoder().decode(T.self, from: data)
     }
@@ -481,8 +513,28 @@ private final class ProgressDelegate: NSObject, URLSessionTaskDelegate {
     }
 }
 
-// MARK: - Error type
+// MARK: - Error types
 
+/// Structured user-facing errors from the RevBo API layer.
+enum RevBoError: LocalizedError {
+    case networkUnavailable
+    case serverUnavailable
+    case invalidAPIKey
+    case timeout
+    case unknown(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .networkUnavailable: return "No internet connection. Check your connection and try again."
+        case .serverUnavailable:  return "RevBo is temporarily unavailable. Try again in a moment."
+        case .invalidAPIKey:      return "Invalid API key. Please check your settings."
+        case .timeout:            return "Request timed out. Try again."
+        case .unknown(let msg):   return msg
+        }
+    }
+}
+
+/// Legacy error kept for backward-compat with existing catch clauses (e.g. Granola sync).
 enum RevBoAPIError: LocalizedError {
     case serverError(String)
     var errorDescription: String? {
