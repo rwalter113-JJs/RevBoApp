@@ -271,3 +271,12 @@ struct MeetingPrepRequest: Codable {
     let meeting_title: String
     let attendees: [AttendeeInput]
 }
+
+// MARK: - Granola Sync  (/v1/granola/sync)
+
+struct GranolaSyncResponse: Codable {
+    let meetings_processed: Int
+    let entries_created:    Int
+    let meeting_titles:     [String]
+    let last_sync:          String   // ISO-8601
+}

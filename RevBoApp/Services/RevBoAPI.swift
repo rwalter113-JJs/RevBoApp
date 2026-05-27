@@ -333,6 +333,42 @@ final class RevBoAPI: ObservableObject {
         let meetings:   [GranolaMeeting]
     }
 
+    /// Bulk-sync recent Granola meetings into the RevBo Brain.
+    ///
+    /// Builds `contactMap` from the on-device contact registry (every tracked
+    /// contact that has an email), posts to `/v1/granola/sync`, and reads the
+    /// Granola API key from the iOS Keychain via AppSettings. The key is placed
+    /// in `X-Granola-Key` and never stored server-side.
+    func syncGranola(contactMap: [[String: String]]) async throws -> GranolaSyncResponse {
+        let url = try endpoint("/v1/granola/sync")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Attach the per-user Granola key from Keychain
+        let granolaKey = AppSettings.shared.granolaAPIKey
+        guard !granolaKey.isEmpty else {
+            throw RevBoAPIError.serverError("Granola API key not set — add it in Settings")
+        }
+        request.setValue(granolaKey, forHTTPHeaderField: "X-Granola-Key")
+
+        struct SyncBody: Encodable {
+            let since_days:  Int
+            let contact_map: [[String: String]]
+        }
+        request.httpBody = try JSONEncoder().encode(SyncBody(since_days: 7, contact_map: contactMap))
+        return try await send(request)
+    }
+
+    /// Build the contact map from the on-device registry for Granola sync.
+    /// Returns an array of {"email": "...", "contact_hash": "..."} dicts.
+    func buildGranolaContactMap() -> [[String: String]] {
+        ContactAttributionStore.shared.contacts.compactMap { contact in
+            guard let email = contact.email, !email.isEmpty else { return nil }
+            return ["email": email.lowercased(), "contact_hash": contact.hash]
+        }
+    }
+
     func granolaListMeetings() async throws -> GranolaMeetingsResponse {
         let url = try endpoint("/v1/integrations/granola/meetings")
         var request = URLRequest(url: url)

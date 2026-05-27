@@ -10,6 +10,13 @@ struct SettingsView: View {
     @State private var showGranolaKey   = false
     @State private var saved            = false
 
+    // Granola sync state
+    @State private var isSyncing        = false
+    @State private var syncToast: String? = nil
+    @State private var syncToastIsError = false
+
+    private let api = RevBoAPI()
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -54,13 +61,18 @@ struct SettingsView: View {
                             }
                         }
 
-                        // ── Integrations ──────────────────────────────────────
-                        settingsSection(title: "Integrations", icon: "puzzlepiece.extension.fill") {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("Granola API Key")
+                        // ── Granola ───────────────────────────────────────────
+                        settingsSection(title: "Granola", icon: "puzzlepiece.extension.fill") {
+                            VStack(alignment: .leading, spacing: 12) {
+
+                                // Status row
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(granolaConnected ? Color.green : Color.gray)
+                                        .frame(width: 8, height: 8)
+                                    Text(granolaConnected ? "Connected" : "Not connected")
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Color.revboMuted)
+                                        .foregroundStyle(granolaConnected ? Color.green : Color.revboMuted)
                                     Spacer()
                                     Button {
                                         showGranolaKey.toggle()
@@ -71,6 +83,7 @@ struct SettingsView: View {
                                     }
                                 }
 
+                                // API key field
                                 Group {
                                     if showGranolaKey {
                                         TextField("Paste your Granola API key…", text: $granolaKeyDraft)
@@ -87,10 +100,56 @@ struct SettingsView: View {
                                 .background(Color.revboBg)
                                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-                                Link("Get your key at granola.ai →",
-                                     destination: URL(string: "https://granola.ai")!)
+                                // Helper link
+                                Link("Find your API key at app.granola.ai/settings →",
+                                     destination: URL(string: "https://app.granola.ai/settings")!)
                                     .font(.caption2)
                                     .foregroundStyle(Color.revboBlue)
+
+                                // Sync Now button (only when connected)
+                                if granolaConnected {
+                                    Button {
+                                        triggerSync()
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            if isSyncing {
+                                                ProgressView()
+                                                    .progressViewStyle(.circular)
+                                                    .scaleEffect(0.8)
+                                                    .tint(.black)
+                                                Text("Syncing…")
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .foregroundStyle(.black)
+                                            } else {
+                                                Image(systemName: "arrow.clockwise")
+                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .foregroundStyle(.black)
+                                                Text("Sync Now")
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .foregroundStyle(.black)
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 40)
+                                        .background(isSyncing ? Color.gray : Color.revboOrange)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        .animation(.easeInOut(duration: 0.2), value: isSyncing)
+                                    }
+                                    .disabled(isSyncing)
+
+                                    // Toast
+                                    if let toast = syncToast {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: syncToastIsError ? "xmark.circle.fill" : "checkmark.circle.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(syncToastIsError ? Color.red : Color.green)
+                                            Text(toast)
+                                                .font(.caption)
+                                                .foregroundStyle(syncToastIsError ? Color.red : Color.green)
+                                        }
+                                        .transition(.opacity)
+                                    }
+                                }
                             }
                         }
 
@@ -149,6 +208,60 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Computed
+
+    private var granolaConnected: Bool {
+        !settings.granolaAPIKey.isEmpty
+    }
+
+    // MARK: - Sync
+
+    private func triggerSync() {
+        guard !isSyncing else { return }
+        isSyncing = true
+        syncToast = nil
+
+        Task {
+            do {
+                let contactMap = api.buildGranolaContactMap()
+                let result     = try await api.syncGranola(contactMap: contactMap)
+                await MainActor.run {
+                    isSyncing = false
+                    let count = result.meetings_processed
+                    syncToast = count == 0
+                        ? "No new meetings to import"
+                        : "\(count) meeting\(count == 1 ? "" : "s") imported (\(result.entries_created) entries)"
+                    syncToastIsError = false
+                    dismissToastAfterDelay()
+                }
+            } catch RevBoAPIError.serverError(let msg) {
+                await MainActor.run {
+                    isSyncing = false
+                    if msg.contains("Invalid Granola") || msg.contains("401") {
+                        syncToast = "Invalid Granola API key — check Settings"
+                    } else {
+                        syncToast = "Sync failed — try again"
+                    }
+                    syncToastIsError = true
+                    dismissToastAfterDelay()
+                }
+            } catch {
+                await MainActor.run {
+                    isSyncing = false
+                    syncToast = "Sync failed — try again"
+                    syncToastIsError = true
+                    dismissToastAfterDelay()
+                }
+            }
+        }
+    }
+
+    private func dismissToastAfterDelay() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            withAnimation { syncToast = nil }
+        }
+    }
+
     // MARK: - Save
 
     private func save() {
@@ -156,7 +269,7 @@ struct SettingsView: View {
         let url = serverURLDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         let key = granolaKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        settings.serverURL    = url.isEmpty ? AppSettings.defaultServerURL : url
+        settings.serverURL     = url.isEmpty ? AppSettings.defaultServerURL : url
         settings.granolaAPIKey = key
 
         withAnimation { saved = true }
