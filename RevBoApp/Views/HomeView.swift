@@ -54,8 +54,8 @@ struct HomeView: View {
                                 Text("RevBo")
                                     .font(.system(size: 44, weight: .black, design: .rounded))
                                     .foregroundStyle(HomeView.brandGradient)
-                                Text("Personal Brain")
-                                    .font(.system(size: 13, weight: .medium))
+                                Text("Your relationships & experience, in AI")
+                                    .font(.system(size: 12, weight: .medium))
                                     .foregroundStyle(Color.revboMuted)
                             }
                             .frame(maxWidth: .infinity)
