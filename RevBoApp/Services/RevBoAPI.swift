@@ -326,6 +326,46 @@ final class RevBoAPI: ObservableObject {
         )
     }
 
+    // MARK: - My Development  (/v1/self/*)
+
+    /// Upload a personal coaching document (review, 1:1, coaching session).
+    func uploadCoachingDoc(_ request: CoachingDocUploadRequest) async throws -> CoachingDocUploadResponse {
+        let url = try endpoint("/v1/self/ingest")
+        var req = URLRequest(url: url)
+        req.httpMethod  = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody    = try JSONEncoder().encode(request)
+        return try await send(req)
+    }
+
+    /// Fetch all uploaded coaching documents.
+    func fetchCoachingDocs() async throws -> CoachingDocsResponse {
+        let url = try endpoint("/v1/self/docs")
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        return try await send(req)
+    }
+
+    /// Delete a coaching document by ID.
+    func deleteCoachingDoc(docId: String) async throws {
+        let url = try endpoint("/v1/self/docs/\(docId)")
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        // Generic send returns Decodable — use a throwaway wrapper
+        struct Empty: Decodable {}
+        let _: Empty = try await send(req)
+    }
+
+    /// Ask a question answered using personal coaching documents.
+    func askCoaching(query: String) async throws -> CoachingAskResponse {
+        let url = try endpoint("/v1/self/ask")
+        var req = URLRequest(url: url)
+        req.httpMethod  = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody    = try JSONEncoder().encode(CoachingAskRequest(query: query))
+        return try await send(req)
+    }
+
     // MARK: - Granola integration
 
     struct GranolaMeetingsResponse: Decodable {

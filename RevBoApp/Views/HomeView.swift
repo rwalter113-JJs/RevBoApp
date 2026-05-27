@@ -21,6 +21,9 @@ struct HomeView: View {
     // ── Onboarding ────────────────────────────────────────────────────────────
     @StateObject private var onboarding = OnboardingService.shared
 
+    // ── My Development sheet ──────────────────────────────────────────────────
+    @State private var showMyDevelopment = false
+
     // ── Routes ────────────────────────────────────────────────────────────────
     enum Route: Hashable {
         case contacts
@@ -104,6 +107,13 @@ struct HomeView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 28)
 
+                        // ── My Development card ───────────────────────────────
+                        HomeCard(symbol: "person.fill.checkmark", label: "My Development") {
+                            showMyDevelopment = true
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 14)
+
                         // ── Quick-capture strip ───────────────────────────────
                         HStack(spacing: 24) {
                             QuickCaptureButton(symbol: "camera.viewfinder", label: "Scan")   { navPath.append(Route.scan) }
@@ -154,6 +164,14 @@ struct HomeView: View {
         // ── Settings sheet ────────────────────────────────────────────────────
         .sheet(isPresented: $showSettings) {
             SettingsView()
+        }
+        // ── My Development sheet ──────────────────────────────────────────────
+        .sheet(isPresented: $showMyDevelopment) {
+            NavigationStack {
+                MyDevelopmentView()
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 

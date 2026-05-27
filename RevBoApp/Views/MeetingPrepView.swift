@@ -112,6 +112,11 @@ struct MeetingPrepView: View {
                     )
                 }
 
+                // ── Coaching notes (from My Development docs) ─────────────────
+                if let context = prep.coaching_context, !context.isEmpty {
+                    CoachingContextCard(text: context)
+                }
+
                 Spacer(minLength: 32)
             }
             .padding(.horizontal, 16)
@@ -527,6 +532,60 @@ private struct SuggestedQuestionsSection: View {
                     .stroke(Color.yellow.opacity(0.15), lineWidth: 1)
             )
         }
+    }
+}
+
+// MARK: - Coaching Context Card (My Development)
+
+private struct CoachingContextCard: View {
+
+    let text: String
+    @State private var expanded = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "person.fill.checkmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.black)
+                    .padding(5)
+                    .background(Color.yellow.opacity(0.8))
+                    .clipShape(Circle())
+                Text("COACHING NOTES")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Color.yellow.opacity(0.8))
+                    .tracking(1.1)
+                Spacer()
+                Button {
+                    withAnimation(.easeInOut(duration: 0.22)) { expanded.toggle() }
+                } label: {
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.revboMuted)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            if expanded {
+                Divider().background(Color.yellow.opacity(0.15))
+
+                Text(text)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.revboText.opacity(0.88))
+                    .lineSpacing(3)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            }
+        }
+        .background(Color.yellow.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.yellow.opacity(0.20), lineWidth: 1)
+        )
     }
 }
 

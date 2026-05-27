@@ -260,6 +260,7 @@ struct MeetingPrepResponse: Codable {
     let meeting_title: String
     let tracked_contacts: [TrackedContactPrep]
     let untracked_names: [String]
+    let coaching_context: String?   // Personal development context (from My Development docs)
 }
 
 struct MeetingPrepRequest: Codable {
@@ -279,4 +280,46 @@ struct GranolaSyncResponse: Codable {
     let entries_created:    Int
     let meeting_titles:     [String]
     let last_sync:          String   // ISO-8601
+}
+
+// MARK: - My Development  (/v1/self/*)
+
+struct CoachingDocUploadRequest: Codable {
+    let text: String
+    let doc_type: String   // "review" | "one_on_one" | "coaching_session" | "other"
+    let title: String
+}
+
+struct CoachingDocUploadResponse: Codable {
+    let doc_id: String
+    let chunks_stored: Int
+    let doc_type: String
+    let title: String
+}
+
+struct CoachingDoc: Codable, Identifiable {
+    var id: String { doc_id }
+    let doc_id: String
+    let doc_type: String
+    let title: String
+    let preview: String
+    let chunk_count: Int
+}
+
+struct CoachingDocsResponse: Codable {
+    let docs: [CoachingDoc]
+}
+
+struct CoachingAskRequest: Codable {
+    let query: String
+}
+
+struct CoachingAskResponse: Codable {
+    let answer: String
+    let sources: [CoachingSource]
+}
+
+struct CoachingSource: Codable {
+    let doc_type: String
+    let title: String
 }
