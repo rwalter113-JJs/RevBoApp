@@ -274,15 +274,6 @@ struct MeetingPrepRequest: Codable {
     let attendees: [AttendeeInput]
 }
 
-// MARK: - Granola Sync  (/v1/granola/sync)
-
-struct GranolaSyncResponse: Codable {
-    let meetings_processed: Int
-    let entries_created:    Int
-    let meeting_titles:     [String]
-    let last_sync:          String   // ISO-8601
-}
-
 // MARK: - My Development  (/v1/self/*)
 
 struct CoachingDocUploadRequest: Codable {
@@ -330,4 +321,15 @@ struct CoachingSource: Codable {
 struct DeleteAllResponse: Codable {
     let deleted: Bool
     let message: String
+}
+
+// MARK: - Email Inbox Token  (/v1/email/token)
+
+struct InboxTokenRequest: Codable {
+    let device_id: String
+}
+
+struct InboxTokenResponse: Codable {
+    let token: String
+    let email: String   // "brain+{token}@revbo.ai"
 }

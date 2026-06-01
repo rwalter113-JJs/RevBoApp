@@ -3,11 +3,10 @@ import Combine
 
 /// Singleton that owns all user-configurable settings.
 ///
-/// - `serverURL`     — stored in UserDefaults; defaults to the Railway production URL.
-///                     Can be overridden in Settings for local dev or self-hosting.
-/// - `granolaAPIKey` — stored in the iOS Keychain; per-user Granola API key.
-/// - `revboAPIKey`   — bundled compile-time constant; not user-configurable.
-///                     Must match REVBO_API_KEY on the Railway server.
+/// - `serverURL`   — stored in UserDefaults; defaults to the Railway production URL.
+///                   Can be overridden in Settings for local dev or self-hosting.
+/// - `revboAPIKey` — bundled compile-time constant; not user-configurable.
+///                   Must match REVBO_API_KEY on the Railway server.
 final class AppSettings: ObservableObject {
 
     static let shared = AppSettings()
@@ -26,16 +25,11 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(serverURL, forKey: Keys.serverURL) }
     }
 
-    @Published var granolaAPIKey: String {
-        didSet { KeychainService.save(key: Keys.granolaKey, value: granolaAPIKey) }
-    }
-
     // MARK: - Init
 
     private init() {
-        serverURL    = UserDefaults.standard.string(forKey: Keys.serverURL)
-                       ?? AppSettings.defaultServerURL
-        granolaAPIKey = KeychainService.load(key: Keys.granolaKey) ?? ""
+        serverURL = UserDefaults.standard.string(forKey: Keys.serverURL)
+                    ?? AppSettings.defaultServerURL
     }
 
     // MARK: - Helpers
@@ -47,7 +41,6 @@ final class AppSettings: ObservableObject {
     // MARK: - Keys
 
     private enum Keys {
-        static let serverURL  = "revbo_server_url"
-        static let granolaKey = "granola_api_key"
+        static let serverURL = "revbo_server_url"
     }
 }

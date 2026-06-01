@@ -1,143 +1,5 @@
 import SwiftUI
 
-// Shown from ImportFileView — lets user pick and import a Granola meeting
-private struct GranolaSection: View {
-    @StateObject private var api = RevBoAPI()
-    @State private var meetings: [GranolaMeeting] = []
-    @State private var isLoading  = false
-    @State private var configured = false
-    @State private var errorMessage: String?
-    let onResult: (RevBoResult) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "waveform.and.mic")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.revboBlue)
-                Text("Import from Granola")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color.revboText)
-                Spacer()
-                if isLoading { ProgressView().tint(Color.revboBlue).scaleEffect(0.8) }
-            }
-
-            if !configured && !isLoading {
-                Text("Add your GRANOLA_API_KEY to the RevBo server to connect your meeting notes.")
-                    .font(.caption)
-                    .foregroundStyle(Color.revboMuted)
-            } else if meetings.isEmpty && !isLoading {
-                Text("No recent meetings found.")
-                    .font(.caption)
-                    .foregroundStyle(Color.revboMuted)
-            } else {
-                ForEach(meetings) { meeting in
-                    GranolaMeetingRow(meeting: meeting, api: api, onResult: onResult)
-                }
-            }
-        }
-        .padding(16)
-        .background(Color.revboSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.revboBlue.opacity(0.18), lineWidth: 1)
-        )
-        .task { await load() }
-        .alert("Error", isPresented: .constant(errorMessage != nil)) {
-            Button("OK") { errorMessage = nil }
-        } message: { Text(errorMessage ?? "") }
-    }
-
-    private func load() async {
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            let r = try await api.granolaListMeetings()
-            configured = r.configured
-            meetings   = r.meetings
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-}
-
-private struct GranolaMeetingRow: View {
-    let meeting:  GranolaMeeting
-    let api:      RevBoAPI
-    let onResult: (RevBoResult) -> Void
-    @State private var isImporting = false
-    @State private var errorMessage: String?
-
-    var body: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(meeting.title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.revboText)
-                    .lineLimit(1)
-                if !meeting.date.isEmpty {
-                    Text(meeting.shortDate)
-                        .font(.caption2)
-                        .foregroundStyle(Color.revboMuted)
-                }
-            }
-            Spacer()
-            if isImporting {
-                ProgressView().tint(Color.revboBlue).scaleEffect(0.75)
-            } else {
-                Button {
-                    Task { await importMeeting() }
-                } label: {
-                    Text("Import")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(Color.revboBlue)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.vertical, 4)
-        .alert("Error", isPresented: .constant(errorMessage != nil)) {
-            Button("OK") { errorMessage = nil }
-        } message: { Text(errorMessage ?? "") }
-    }
-
-    private func importMeeting() async {
-        isImporting = true
-        defer { isImporting = false }
-        do {
-            let result = try await api.granolaImportMeeting(meetingId: meeting.id)
-            onResult(result)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-}
-
-struct GranolaMeeting: Identifiable, Decodable {
-    let id:               String
-    let title:            String
-    let date:             String
-    let duration_minutes: Int?
-    let participants:     [String]
-
-    var shortDate: String {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = iso.date(from: date) ?? ISO8601DateFormatter().date(from: date) {
-            let f = DateFormatter()
-            f.dateStyle = .medium
-            f.timeStyle = .short
-            return f.string(from: d)
-        }
-        return date
-    }
-}
-
 struct ImportFileView: View {
 
     @StateObject private var api     = RevBoAPI()
@@ -191,38 +53,12 @@ struct ImportFileView: View {
                     .buttonStyle(.plain)
                     .padding(.horizontal, 24)
 
-                    // ── Granola integration ───────────────────────────────────
-                    GranolaSection { importedResult in
-                        withAnimation {
-                            progress = 1.0
-                            stage    = "Stored in Brain ✓"
-                            result   = importedResult
-                        }
-                        // Run attribution detection for Granola imports too
-                        Task {
-                            let s = await AttributionDetector.detect(
-                                detectedEmails: importedResult.detected_emails ?? [],
-                                detectedNames:  importedResult.detected_names  ?? [],
-                                store:          store,
-                                brainId:        importedResult.audit.brain_id
-                            )
-                            await MainActor.run {
-                                suggestion = s
-                                if s == nil {
-                                    pickerBrainId    = importedResult.audit.brain_id
-                                    showContactPicker = true
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 24)
-
                     // ── Connected services hint ───────────────────────────────
                     HStack(spacing: 8) {
                         Image(systemName: "info.circle")
                             .font(.caption)
                             .foregroundStyle(.gray)
-                        Text("Dropbox, Google Drive, iCloud and OneDrive appear in the Files sheet — just open the app and sign in first. Use Granola below to import call transcripts directly.")
+                        Text("Dropbox, Google Drive, iCloud and OneDrive appear in the Files sheet — just open the app and sign in first. You can also forward Granola notes to your RevBo email address (see Settings).")
                             .font(.caption)
                             .foregroundStyle(.gray)
                             .fixedSize(horizontal: false, vertical: true)

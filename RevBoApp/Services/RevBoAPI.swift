@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 final class RevBoAPI: ObservableObject {
 
@@ -366,67 +367,17 @@ final class RevBoAPI: ObservableObject {
         return try await send(req)
     }
 
-    // MARK: - Granola integration
+    // MARK: - Email Inbox Token  (/v1/email/token)
 
-    struct GranolaMeetingsResponse: Decodable {
-        let configured: Bool
-        let meetings:   [GranolaMeeting]
-    }
-
-    /// Bulk-sync recent Granola meetings into the RevBo Brain.
-    ///
-    /// Builds `contactMap` from the on-device contact registry (every tracked
-    /// contact that has an email), posts to `/v1/granola/sync`, and reads the
-    /// Granola API key from the iOS Keychain via AppSettings. The key is placed
-    /// in `X-Granola-Key` and never stored server-side.
-    func syncGranola(contactMap: [[String: String]]) async throws -> GranolaSyncResponse {
-        let url = try endpoint("/v1/granola/sync")
+    /// Fetch (or create) the user's personal forwarding email address.
+    /// The backend is deterministic: the same device_id always returns the same token/email.
+    func fetchInboxEmail() async throws -> InboxTokenResponse {
+        let url = try endpoint("/v1/email/token")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        // Attach the per-user Granola key from Keychain
-        let granolaKey = AppSettings.shared.granolaAPIKey
-        guard !granolaKey.isEmpty else {
-            throw RevBoAPIError.serverError("Granola API key not set — add it in Settings")
-        }
-        request.setValue(granolaKey, forHTTPHeaderField: "X-Granola-Key")
-
-        struct SyncBody: Encodable {
-            let since_days:  Int
-            let contact_map: [[String: String]]
-        }
-        request.httpBody = try JSONEncoder().encode(SyncBody(since_days: 7, contact_map: contactMap))
-        return try await send(request)
-    }
-
-    /// Build the contact map from the on-device registry for Granola sync.
-    /// Returns an array of {"email": "...", "contact_hash": "..."} dicts.
-    func buildGranolaContactMap() -> [[String: String]] {
-        ContactAttributionStore.shared.contacts.compactMap { contact in
-            guard let email = contact.email, !email.isEmpty else { return nil }
-            return ["email": email.lowercased(), "contact_hash": contact.hash]
-        }
-    }
-
-    func granolaListMeetings() async throws -> GranolaMeetingsResponse {
-        let url = try endpoint("/v1/integrations/granola/meetings")
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        let key = AppSettings.shared.granolaAPIKey
-        if !key.isEmpty { request.setValue(key, forHTTPHeaderField: "X-Granola-Key") }
-        return try await send(request)
-    }
-
-    func granolaImportMeeting(meetingId: String) async throws -> RevBoResult {
-        let url = try endpoint("/v1/integrations/granola/import")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let key = AppSettings.shared.granolaAPIKey
-        if !key.isEmpty { request.setValue(key, forHTTPHeaderField: "X-Granola-Key") }
-        struct Body: Encodable { let meeting_id: String }
-        request.httpBody = try JSONEncoder().encode(Body(meeting_id: meetingId))
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+        request.httpBody = try JSONEncoder().encode(InboxTokenRequest(device_id: deviceId))
         return try await send(request)
     }
 

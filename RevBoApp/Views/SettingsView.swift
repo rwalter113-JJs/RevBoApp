@@ -7,14 +7,13 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var serverURLDraft   = ""
-    @State private var granolaKeyDraft  = ""
-    @State private var showGranolaKey   = false
     @State private var saved            = false
 
-    // Granola sync state
-    @State private var isSyncing        = false
-    @State private var syncToast: String? = nil
-    @State private var syncToastIsError = false
+    // Inbox email state
+    @AppStorage("revbo.inboxEmail") private var cachedInboxEmail = ""
+    @State private var inboxEmailLoading = false
+    @State private var inboxEmailError   = false
+    @State private var copyToast: String? = nil
 
     // Delete all data state
     @State private var showDeleteConfirm = false
@@ -67,95 +66,91 @@ struct SettingsView: View {
                             }
                         }
 
-                        // ── Granola ───────────────────────────────────────────
-                        settingsSection(title: "Granola", icon: "puzzlepiece.extension.fill") {
+                        // ── Forward to RevBo ──────────────────────────────────
+                        settingsSection(title: "FORWARD TO REVBO", icon: "envelope.fill") {
                             VStack(alignment: .leading, spacing: 12) {
 
-                                // Status row
-                                HStack(spacing: 6) {
-                                    Circle()
-                                        .fill(granolaConnected ? Color.green : Color.gray)
-                                        .frame(width: 8, height: 8)
-                                    Text(granolaConnected ? "Connected" : "Not connected")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(granolaConnected ? Color.green : Color.revboMuted)
-                                    Spacer()
-                                    Button {
-                                        showGranolaKey.toggle()
-                                    } label: {
-                                        Image(systemName: showGranolaKey ? "eye.slash" : "eye")
-                                            .font(.caption)
-                                            .foregroundStyle(Color.revboMuted)
-                                    }
+                                // Headline + subtitle
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Your RevBo Email Address")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(Color.revboText)
+                                    Text("Forward anything to this address — Granola meeting notes, email threads, articles, call summaries. RevBo reads it and adds it to your Brain.")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.revboMuted)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
 
-                                // API key field
-                                Group {
-                                    if showGranolaKey {
-                                        TextField("Paste your Granola API key…", text: $granolaKeyDraft)
-                                    } else {
-                                        SecureField("Paste your Granola API key…", text: $granolaKeyDraft)
-                                    }
-                                }
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundStyle(Color.revboText)
-                                .tint(Color.revboOrange)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                                .padding(10)
-                                .background(Color.revboBg)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                // Email address box
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Color.revboBg)
 
-                                // Helper link
-                                Link("Find your API key at app.granola.ai/settings →",
-                                     destination: URL(string: "https://app.granola.ai/settings")!)
-                                    .font(.caption2)
-                                    .foregroundStyle(Color.revboBlue)
-
-                                // Sync Now button (only when connected)
-                                if granolaConnected {
-                                    Button {
-                                        triggerSync()
-                                    } label: {
-                                        HStack(spacing: 8) {
-                                            if isSyncing {
-                                                ProgressView()
-                                                    .progressViewStyle(.circular)
-                                                    .scaleEffect(0.8)
-                                                    .tint(.black)
-                                                Text("Syncing…")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .foregroundStyle(.black)
-                                            } else {
+                                    if inboxEmailLoading {
+                                        HStack {
+                                            ProgressView()
+                                                .progressViewStyle(.circular)
+                                                .scaleEffect(0.8)
+                                                .tint(Color.revboMuted)
+                                            Text("Fetching your address…")
+                                                .font(.system(size: 13, design: .monospaced))
+                                                .foregroundStyle(Color.revboMuted)
+                                        }
+                                        .padding(10)
+                                    } else if inboxEmailError {
+                                        Button {
+                                            Task { await loadInboxEmail(force: true) }
+                                        } label: {
+                                            HStack(spacing: 6) {
                                                 Image(systemName: "arrow.clockwise")
-                                                    .font(.system(size: 13, weight: .semibold))
-                                                    .foregroundStyle(.black)
-                                                Text("Sync Now")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .foregroundStyle(.black)
+                                                    .font(.caption)
+                                                Text("Tap to retry")
+                                                    .font(.system(size: 13))
                                             }
+                                            .foregroundStyle(Color.revboOrange)
+                                            .padding(10)
                                         }
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 40)
-                                        .background(isSyncing ? Color.gray : Color.revboOrange)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                        .animation(.easeInOut(duration: 0.2), value: isSyncing)
-                                    }
-                                    .disabled(isSyncing)
-
-                                    // Toast
-                                    if let toast = syncToast {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: syncToastIsError ? "xmark.circle.fill" : "checkmark.circle.fill")
-                                                .font(.caption)
-                                                .foregroundStyle(syncToastIsError ? Color.red : Color.green)
-                                            Text(toast)
-                                                .font(.caption)
-                                                .foregroundStyle(syncToastIsError ? Color.red : Color.green)
-                                        }
-                                        .transition(.opacity)
+                                    } else {
+                                        Text(cachedInboxEmail.isEmpty ? "Loading…" : cachedInboxEmail)
+                                            .font(.system(size: 13, design: .monospaced))
+                                            .foregroundStyle(cachedInboxEmail.isEmpty ? Color.revboMuted : Color.revboText)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(10)
                                     }
                                 }
+                                .frame(minHeight: 40)
+
+                                // Copy button + toast
+                                HStack(spacing: 10) {
+                                    Button {
+                                        copyEmail()
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: copyToast != nil ? "checkmark" : "doc.on.doc")
+                                                .font(.system(size: 13, weight: .semibold))
+                                            Text(copyToast ?? "Copy Address")
+                                                .font(.system(size: 13, weight: .semibold))
+                                        }
+                                        .foregroundStyle(.black)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 36)
+                                        .background(copyToast != nil ? Color.green : Color.revboOrange)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        .animation(.easeInOut(duration: 0.2), value: copyToast)
+                                    }
+                                    .disabled(cachedInboxEmail.isEmpty || inboxEmailLoading)
+                                }
+
+                                // Works-great-for hint
+                                Text("Works great for: Granola meeting notes · Email threads · Articles · Call recaps · Any text you want to remember")
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.revboMuted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .onAppear {
+                            if cachedInboxEmail.isEmpty {
+                                Task { await loadInboxEmail() }
                             }
                         }
 
@@ -291,62 +286,38 @@ struct SettingsView: View {
             }
         }
         .onAppear {
-            serverURLDraft  = settings.serverURL
-            granolaKeyDraft = settings.granolaAPIKey
+            serverURLDraft = settings.serverURL
         }
     }
 
-    // MARK: - Computed
+    // MARK: - Inbox email
 
-    private var granolaConnected: Bool {
-        !settings.granolaAPIKey.isEmpty
-    }
-
-    // MARK: - Sync
-
-    private func triggerSync() {
-        guard !isSyncing else { return }
-        isSyncing = true
-        syncToast = nil
-
-        Task {
-            do {
-                let contactMap = api.buildGranolaContactMap()
-                let result     = try await api.syncGranola(contactMap: contactMap)
-                await MainActor.run {
-                    isSyncing = false
-                    let count = result.meetings_processed
-                    syncToast = count == 0
-                        ? "No new meetings to import"
-                        : "\(count) meeting\(count == 1 ? "" : "s") imported (\(result.entries_created) entries)"
-                    syncToastIsError = false
-                    dismissToastAfterDelay()
-                }
-            } catch RevBoAPIError.serverError(let msg) {
-                await MainActor.run {
-                    isSyncing = false
-                    if msg.contains("Invalid Granola") || msg.contains("401") {
-                        syncToast = "Invalid Granola API key — check Settings"
-                    } else {
-                        syncToast = "Sync failed — try again"
-                    }
-                    syncToastIsError = true
-                    dismissToastAfterDelay()
-                }
-            } catch {
-                await MainActor.run {
-                    isSyncing = false
-                    syncToast = "Sync failed — try again"
-                    syncToastIsError = true
-                    dismissToastAfterDelay()
-                }
+    private func loadInboxEmail(force: Bool = false) async {
+        guard force || cachedInboxEmail.isEmpty else { return }
+        await MainActor.run {
+            inboxEmailLoading = true
+            inboxEmailError   = false
+        }
+        do {
+            let response = try await api.fetchInboxEmail()
+            await MainActor.run {
+                cachedInboxEmail  = response.email
+                inboxEmailLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                inboxEmailLoading = false
+                inboxEmailError   = true
             }
         }
     }
 
-    private func dismissToastAfterDelay() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-            withAnimation { syncToast = nil }
+    private func copyEmail() {
+        guard !cachedInboxEmail.isEmpty else { return }
+        UIPasteboard.general.string = cachedInboxEmail
+        withAnimation { copyToast = "Copied!" }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            withAnimation { copyToast = nil }
         }
     }
 
@@ -366,9 +337,6 @@ struct SettingsView: View {
         } catch {
             await MainActor.run {
                 isDeleting = false
-                syncToast = "Delete failed — try again"
-                syncToastIsError = true
-                dismissToastAfterDelay()
             }
         }
     }
@@ -376,12 +344,8 @@ struct SettingsView: View {
     // MARK: - Save
 
     private func save() {
-        // Trim whitespace — easy paste errors
         let url = serverURLDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        let key = granolaKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        settings.serverURL     = url.isEmpty ? AppSettings.defaultServerURL : url
-        settings.granolaAPIKey = key
+        settings.serverURL = url.isEmpty ? AppSettings.defaultServerURL : url
 
         withAnimation { saved = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
