@@ -377,7 +377,9 @@ final class RevBoAPI: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
-        request.httpBody = try JSONEncoder().encode(InboxTokenRequest(device_id: deviceId))
+        request.httpBody = try JSONEncoder().encode(
+            InboxTokenRequest(device_id: deviceId, user_id: AppSettings.shared.userID)
+        )
         return try await send(request)
     }
 
@@ -403,6 +405,8 @@ final class RevBoAPI: ObservableObject {
         var req = request
         // Attach the shared app API key so the server can authenticate the request
         req.setValue(AppSettings.revboAPIKey, forHTTPHeaderField: "X-RevBo-Key")
+        // Attach the permanent per-user identity so the backend can scope brain data
+        req.setValue(AppSettings.shared.userID, forHTTPHeaderField: "X-RevBo-User-ID")
         let data: Data
         let response: URLResponse
         do {

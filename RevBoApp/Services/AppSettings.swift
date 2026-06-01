@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Security
 
 /// Singleton that owns all user-configurable settings.
 ///
@@ -7,6 +8,7 @@ import Combine
 ///                   Can be overridden in Settings for local dev or self-hosting.
 /// - `revboAPIKey` — bundled compile-time constant; not user-configurable.
 ///                   Must match REVBO_API_KEY on the Railway server.
+/// - `userID`      — permanent UUID stored in Keychain; generated once on first access.
 final class AppSettings: ObservableObject {
 
     static let shared = AppSettings()
@@ -25,6 +27,20 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(serverURL, forKey: Keys.serverURL) }
     }
 
+    // MARK: - Permanent User Identity
+
+    /// The user's permanent brain identity. Generated once on first access and
+    /// stored in the Keychain — never changes across app launches or reinstalls
+    /// (as long as the Keychain item persists).
+    var userID: String {
+        if let existing = readKeychain(Keys.userID) {
+            return existing
+        }
+        let newID = UUID().uuidString
+        saveKeychain(Keys.userID, value: newID)
+        return newID
+    }
+
     // MARK: - Init
 
     private init() {
@@ -38,9 +54,47 @@ final class AppSettings: ObservableObject {
         serverURL = AppSettings.defaultServerURL
     }
 
+    // MARK: - Keychain
+
+    private func readKeychain(_ key: String) -> String? {
+        let query: [CFString: Any] = [
+            kSecClass:            kSecClassGenericPassword,
+            kSecAttrAccount:      key,
+            kSecReturnData:       true,
+            kSecMatchLimit:       kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let value = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return value
+    }
+
+    private func saveKeychain(_ key: String, value: String) {
+        guard let data = value.data(using: .utf8) else { return }
+        // Delete any existing item first, then add the new one.
+        let deleteQuery: [CFString: Any] = [
+            kSecClass:       kSecClassGenericPassword,
+            kSecAttrAccount: key,
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+
+        let addQuery: [CFString: Any] = [
+            kSecClass:            kSecClassGenericPassword,
+            kSecAttrAccount:      key,
+            kSecValueData:        data,
+            kSecAttrAccessible:   kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        SecItemAdd(addQuery as CFDictionary, nil)
+    }
+
     // MARK: - Keys
 
     private enum Keys {
         static let serverURL = "revbo_server_url"
+        static let userID    = "revbo.user_id"
     }
 }

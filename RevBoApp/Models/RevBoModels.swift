@@ -327,9 +327,11 @@ struct DeleteAllResponse: Codable {
 
 struct InboxTokenRequest: Codable {
     let device_id: String
+    let user_id: String
 }
 
 struct InboxTokenResponse: Codable {
     let token: String
     let email: String   // "brain+{token}@revbo.ai"
+    let user_id: String?  // optional for backward compat
 }

@@ -146,6 +146,13 @@ struct SettingsView: View {
                                     .font(.caption2)
                                     .foregroundStyle(Color.revboMuted)
                                     .fixedSize(horizontal: false, vertical: true)
+
+                                // Support reference — first 8 chars of permanent user ID
+                                let shortID = String(AppSettings.shared.userID.prefix(8))
+                                Text("ID: \(shortID)…")
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.revboMuted.opacity(0.6))
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
                             }
                         }
                         .onAppear {
