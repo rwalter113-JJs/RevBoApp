@@ -2,6 +2,57 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+struct FolderPicker: UIViewControllerRepresentable {
+
+    let onPick: ([URL]) -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder])
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: ([URL]) -> Void
+        init(onPick: @escaping ([URL]) -> Void) { self.onPick = onPick }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let folderURL = urls.first else { return }
+            guard folderURL.startAccessingSecurityScopedResource() else { return }
+            defer { folderURL.stopAccessingSecurityScopedResource() }
+
+            let supported: Set<String> = [
+                "pdf","docx","doc","pptx","ppt","txt","md","csv","vtt","srt","eml",
+                "mp4","mov","wav","m4a","mp3","aac"
+            ]
+            let fm = FileManager.default
+            guard let enumerator = fm.enumerator(
+                at: folderURL,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            ) else { return }
+
+            var files: [URL] = []
+            for case let fileURL as URL in enumerator {
+                let ext = fileURL.pathExtension.lowercased()
+                if supported.contains(ext) {
+                    // Copy to temp so access survives picker dismissal
+                    let tmp = FileManager.default.temporaryDirectory
+                        .appendingPathComponent(UUID().uuidString)
+                        .appendingPathExtension(ext)
+                    try? fm.copyItem(at: fileURL, to: tmp)
+                    files.append(tmp)
+                }
+            }
+            onPick(files)
+        }
+    }
+}
+
 struct DocumentPicker: UIViewControllerRepresentable {
 
     let onPick: (URL) -> Void
