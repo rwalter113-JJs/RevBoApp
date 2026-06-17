@@ -101,10 +101,10 @@ struct UnattributedEntriesView: View {
             await MainActor.run {
                 entries = response.results.map { result in
                     UnattributedEntry(
-                        id: result.metadata?["brain_id"] as? String ?? UUID().uuidString,
-                        text: result.document ?? "",
-                        date: result.metadata?["stored_at"] as? String ?? "",
-                        source: result.metadata?["source_type"] as? String ?? "unknown"
+                        id: result.metadata["brain_id"] ?? UUID().uuidString,
+                        text: result.text,
+                        date: result.metadata["stored_at"] ?? "",
+                        source: result.metadata["source_type"] ?? "unknown"
                     )
                 }
             }
