@@ -161,6 +161,31 @@ struct SettingsView: View {
                             }
                         }
 
+                        // ── Profile ───────────────────────────────────────────
+                        settingsSection(title: "PROFILE", icon: "person.crop.circle.fill") {
+                            NavigationLink {
+                                ProfileSettingsView()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "briefcase.fill")
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(Color.revboOrange)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Job Context & Sales Config")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color.revboText)
+                                        Text("What you sell, buyer persona, quota")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.revboMuted)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.revboSubtle)
+                                }
+                            }
+                        }
+
                         // ── Data Management ───────────────────────────────────
                         settingsSection(title: "DATA MANAGEMENT", icon: "folder.fill") {
                             NavigationLink {

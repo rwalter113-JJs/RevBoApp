@@ -505,3 +505,65 @@ private extension Data {
         if let data = string.data(using: .utf8) { append(data) }
     }
 }
+
+// MARK: - User Profile
+
+struct CurrentRoleDict: Codable {
+    var company: String
+    var title: String
+    var start_date: String
+    var linkedin_url: String
+}
+
+struct SalesContextDict: Codable {
+    var product: String
+    var sales_cycle_days: Int
+    var aov: Int
+    var buyer_persona: String
+    var quota_annual: Int
+    var attainment_last_year: Int
+    var biggest_win: String
+    var biggest_loss: String
+    var left_previous_because: String
+}
+
+struct WorkHistoryEntryDict: Codable {
+    var company: String
+    var title: String
+    var start: String
+    var end: String
+    var key_learnings: String
+}
+
+struct ProfileResponse: Codable {
+    var user_id: String
+    var current_role: CurrentRoleDict
+    var sales_context: SalesContextDict
+    var work_history: [WorkHistoryEntryDict]
+    var onboarding_completed: Bool
+}
+
+struct UpdateProfileRequest: Codable {
+    var current_role: CurrentRoleDict?
+    var sales_context: SalesContextDict?
+    var work_history: [WorkHistoryEntryDict]?
+    var onboarding_completed: Bool?
+}
+
+extension RevBoAPI {
+    func getProfile() async throws -> ProfileResponse {
+        let url = try endpoint("/v1/profile/me")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        return try await send(request)
+    }
+
+    func updateProfile(_ req: UpdateProfileRequest) async throws -> ProfileResponse {
+        let url = try endpoint("/v1/profile/me")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(req)
+        return try await send(request)
+    }
+}

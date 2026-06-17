@@ -14,7 +14,7 @@ struct RevBoAppApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            RootView()
                 .preferredColorScheme(.dark)
                 .task { await requestPermissions() }
         }
