@@ -161,6 +161,31 @@ struct SettingsView: View {
                             }
                         }
 
+                        // ── Data Management ───────────────────────────────────
+                        settingsSection(title: "DATA MANAGEMENT", icon: "folder.fill") {
+                            NavigationLink {
+                                UnattributedEntriesView()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "person.badge.plus.fill")
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(Color.revboOrange)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Unattributed Entries")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color.revboText)
+                                        Text("Assign brain entries to contacts")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.revboMuted)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.revboSubtle)
+                                }
+                            }
+                        }
+
                         // ── About ─────────────────────────────────────────────
                         settingsSection(title: "About", icon: "info.circle") {
                             VStack(alignment: .leading, spacing: 6) {
