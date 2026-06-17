@@ -92,18 +92,18 @@ struct UnattributedEntriesView: View {
         defer { isLoading = false }
 
         do {
-            let response = try await api.queryBrain(QueryBrainRequest(
-                query_text: "",
-                filter_metadata: ["contact_hash": "unattributed"],
-                n_results: 50
-            ))
+            let response = try await api.queryBrain(
+                "",
+                filter: ["contact_hash": "unattributed"],
+                n: 50
+            )
 
             await MainActor.run {
                 entries = response.results.map { result in
                     UnattributedEntry(
                         id: result.metadata?["brain_id"] as? String ?? UUID().uuidString,
                         text: result.document ?? "",
-                        date: result.metadata?["timestamp"] as? String ?? "",
+                        date: result.metadata?["stored_at"] as? String ?? "",
                         source: result.metadata?["source_type"] as? String ?? "unknown"
                     )
                 }
@@ -117,7 +117,7 @@ struct UnattributedEntriesView: View {
 
     private func attributeEntry(_ entry: UnattributedEntry, to contact: TrackedContact) async {
         do {
-            let hash = ContactHashService.shared.hash(email: contact.email)
+            let hash = ContactHashService.shared.hash(email: contact.email ?? "")
             _ = try await api.attachContactHash(ContactAttachRequest(
                 brain_id: entry.id,
                 contact_hash: hash,
