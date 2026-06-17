@@ -119,10 +119,8 @@ struct UnattributedEntriesView: View {
         do {
             let hash = ContactHashService.shared.hash(email: contact.email ?? "")
             _ = try await api.attachContactHash(ContactAttachRequest(
-                brain_id: entry.id,
-                contact_hash: hash,
-                attribution_method: "manual",
-                attribution_confidence: "confirmed"
+                brainId: entry.id,
+                contactHash: hash
             ))
 
             await MainActor.run {
