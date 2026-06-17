@@ -91,6 +91,8 @@ final class RevBoAPI: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)",
                          forHTTPHeaderField: "Content-Type")
+        request.setValue(AppSettings.revboAPIKey, forHTTPHeaderField: "X-RevBo-Key")
+        request.setValue(AppSettings.shared.userID, forHTTPHeaderField: "X-RevBo-User-ID")
 
         let body = multipartBody(data: fileData,
                                   mimeType: mime,
