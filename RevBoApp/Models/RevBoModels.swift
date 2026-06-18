@@ -37,8 +37,54 @@ struct BrainQueryResponse: Codable {
 struct BrainResult: Codable, Identifiable {
     var id: String { text }
     let text: String
-    let metadata: [String: String]
+    let metadata: [String: AnyCodable]
     let relevance_score: Double
+
+    // Helper to extract string values from metadata
+    func metadataString(_ key: String) -> String {
+        guard let value = metadata[key] else { return "" }
+        if let str = value.value as? String { return str }
+        if let bool = value.value as? Bool { return String(bool) }
+        if let int = value.value as? Int { return String(int) }
+        return ""
+    }
+}
+
+// Helper type to decode Any values from JSON
+struct AnyCodable: Codable {
+    let value: Any
+
+    init(_ value: Any) {
+        self.value = value
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let bool = try? container.decode(Bool.self) {
+            value = bool
+        } else if let int = try? container.decode(Int.self) {
+            value = int
+        } else if let double = try? container.decode(Double.self) {
+            value = double
+        } else if let string = try? container.decode(String.self) {
+            value = string
+        } else {
+            value = ""
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if let bool = value as? Bool {
+            try container.encode(bool)
+        } else if let int = value as? Int {
+            try container.encode(int)
+        } else if let double = value as? Double {
+            try container.encode(double)
+        } else if let string = value as? String {
+            try container.encode(string)
+        }
+    }
 }
 
 // MARK: - Brain Ask (synthesised coaching — /v1/brain/ask)
@@ -334,4 +380,17 @@ struct InboxTokenResponse: Codable {
     let token: String
     let email: String   // "brain+{token}@revbo.ai"
     let user_id: String?  // optional for backward compat
+}
+
+// MARK: - Missing Links  (/v1/missing-links/*)
+
+struct MissingLinkSummaryResponse: Codable {
+    let brain_id: String
+    let human_summary: String
+}
+
+struct MissingLinksCountResponse: Codable {
+    let count: Int
+    let high_priority: Int
+    let medium_priority: Int
 }

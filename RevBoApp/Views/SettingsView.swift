@@ -19,6 +19,7 @@ struct SettingsView: View {
     @State private var showDeleteConfirm = false
     @State private var isDeleting        = false
     @State private var deleteToast: String? = nil
+    @State private var missingLinksCount: Int = 0
 
     private let api = RevBoAPI()
 
@@ -189,26 +190,38 @@ struct SettingsView: View {
                         // ── Data Management ───────────────────────────────────
                         settingsSection(title: "DATA MANAGEMENT", icon: "folder.fill") {
                             NavigationLink {
-                                UnattributedEntriesView()
+                                MissingLinksView()
                             } label: {
                                 HStack(spacing: 12) {
-                                    Image(systemName: "person.badge.plus.fill")
+                                    Image(systemName: "link.circle.fill")
                                         .font(.system(size: 15))
                                         .foregroundStyle(Color.revboOrange)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("Unattributed Entries")
+                                        Text("Missing Links")
                                             .font(.system(size: 14, weight: .semibold))
                                             .foregroundStyle(Color.revboText)
-                                        Text("Assign brain entries to contacts")
+                                        Text("Connect intel to contacts")
                                             .font(.caption)
                                             .foregroundStyle(Color.revboMuted)
                                     }
                                     Spacer()
+                                    if missingLinksCount > 0 {
+                                        Text("\(missingLinksCount)")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.revboOrange)
+                                            .clipShape(Capsule())
+                                    }
                                     Image(systemName: "chevron.right")
                                         .font(.caption)
                                         .foregroundStyle(Color.revboSubtle)
                                 }
                             }
+                        }
+                        .task {
+                            await loadMissingLinksCount()
                         }
 
                         // ── About ─────────────────────────────────────────────
@@ -375,6 +388,20 @@ struct SettingsView: View {
         withAnimation { copyToast = "Copied!" }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation { copyToast = nil }
+        }
+    }
+
+    // MARK: - Missing Links Count
+
+    private func loadMissingLinksCount() async {
+        do {
+            let response = try await api.getMissingLinksCount()
+            await MainActor.run {
+                missingLinksCount = response.count
+            }
+        } catch {
+            // Silent fail — count is just a badge, not critical
+            print("DEBUG Failed to load missing links count: \(error)")
         }
     }
 

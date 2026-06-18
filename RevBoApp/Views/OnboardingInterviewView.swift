@@ -13,6 +13,11 @@ struct OnboardingInterviewView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
+    // LinkedIn enrichment
+    @State private var linkedInURL = ""
+    @State private var skipLinkedIn = false
+    @State private var isEnriching = false
+
     // Profile fields
     @State private var product = ""
     @State private var salesCycleDays = 60
@@ -75,16 +80,26 @@ struct OnboardingInterviewView: View {
                         }
 
                         Button {
-                            if currentStep < 6 {
+                            if currentStep == 1 && !skipLinkedIn && !linkedInURL.isEmpty {
+                                // LinkedIn enrichment step
+                                Task { await enrichFromLinkedIn() }
+                            } else if currentStep < 7 {
                                 withAnimation { currentStep += 1 }
                             } else {
                                 Task { await completeOnboarding() }
                             }
                         } label: {
                             HStack {
-                                Text(currentStep < 6 ? "Next" : "Finish")
-                                if currentStep == 6 {
-                                    Image(systemName: "checkmark.circle.fill")
+                                if currentStep == 1 && !skipLinkedIn && !linkedInURL.isEmpty && isEnriching {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                        .tint(.black)
+                                    Text("Enriching...")
+                                } else {
+                                    Text(currentStep < 7 ? "Next" : "Finish")
+                                    if currentStep == 7 {
+                                        Image(systemName: "checkmark.circle.fill")
+                                    }
                                 }
                             }
                             .font(.system(size: 15, weight: .semibold))
@@ -121,12 +136,13 @@ struct OnboardingInterviewView: View {
     private var stepView: some View {
         switch currentStep {
         case 0: welcomeStep
-        case 1: productStep
-        case 2: salesCycleStep
-        case 3: buyerStep
-        case 4: quotaStep
-        case 5: winsStep
-        case 6: lossesStep
+        case 1: linkedInStep
+        case 2: productStep
+        case 3: salesCycleStep
+        case 4: buyerStep
+        case 5: quotaStep
+        case 6: winsStep
+        case 7: lossesStep
         default: EmptyView()
         }
     }
@@ -149,6 +165,50 @@ struct OnboardingInterviewView: View {
             Text("Takes about 2 minutes")
                 .font(.system(size: 14))
                 .foregroundStyle(Color.revboOrange)
+        }
+    }
+
+    private var linkedInStep: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Image(systemName: "person.badge.key.fill")
+                .font(.system(size: 56))
+                .foregroundStyle(Color(red: 0.0, green: 0.47, blue: 0.71)) // LinkedIn blue
+
+            Text("Connect your LinkedIn")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(.white)
+
+            Text("We'll auto-fill your work history and current role. Your profile stays private—we only use it to personalize coaching.")
+                .font(.system(size: 15))
+                .foregroundStyle(.gray)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(spacing: 12) {
+                TextField("Paste your LinkedIn profile URL", text: $linkedInURL)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.white)
+                    .tint(Color.revboOrange)
+                    .padding(14)
+                    .background(Color(white: 0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+
+                Text("Example: linkedin.com/in/yourname")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.gray)
+            }
+
+            Button {
+                skipLinkedIn = true
+                withAnimation { currentStep += 1 }
+            } label: {
+                Text("Skip for now")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.revboOrange)
+            }
+            .padding(.top, 8)
         }
     }
 
@@ -348,19 +408,50 @@ struct OnboardingInterviewView: View {
     // MARK: - Helpers
 
     private var progressFraction: CGFloat {
-        CGFloat(currentStep + 1) / 7.0
+        CGFloat(currentStep + 1) / 8.0
     }
 
     private var isNextEnabled: Bool {
         switch currentStep {
-        case 0: return true
-        case 1: return !product.isEmpty
-        case 2: return true  // salesCycleDays has default
-        case 3: return !buyerPersona.isEmpty || aov > 0
-        case 4: return true  // quota optional
-        case 5: return !biggestWin.isEmpty
-        case 6: return !biggestLoss.isEmpty
+        case 0: return true  // Welcome
+        case 1: return true  // LinkedIn optional (can skip)
+        case 2: return !product.isEmpty
+        case 3: return true  // salesCycleDays has default
+        case 4: return !buyerPersona.isEmpty || aov > 0
+        case 5: return true  // quota optional
+        case 6: return !biggestWin.isEmpty
+        case 7: return !biggestLoss.isEmpty
         default: return false
+        }
+    }
+
+    private func enrichFromLinkedIn() async {
+        isEnriching = true
+        defer { isEnriching = false }
+
+        do {
+            let revboAPI = RevBoAPI()
+            let enriched = try await revboAPI.enrichProfileFromLinkedIn(linkedInURL: linkedInURL)
+
+            // Auto-populate fields from LinkedIn data
+            await MainActor.run {
+                let role = enriched.current_role
+                if !role.title.isEmpty && product.isEmpty {
+                    product = role.title
+                }
+                if !role.company.isEmpty && buyerPersona.isEmpty {
+                    buyerPersona = "Decision makers at companies like \(role.company)"
+                }
+
+                // Move to next step
+                withAnimation { currentStep += 1 }
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Could not enrich from LinkedIn. You can continue manually."
+                // Still proceed to next step
+                withAnimation { currentStep += 1 }
+            }
         }
     }
 

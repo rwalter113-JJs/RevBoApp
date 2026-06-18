@@ -556,8 +556,14 @@ private struct SourceNotesToggle: View {
 private struct SourceNoteCard: View {
     let note: BrainResult
 
-    private var bucketLabel: String? { note.metadata["bucket"] }
-    private var industryLabel: String? { note.metadata["industry"] }
+    private var bucketLabel: String? {
+        let val = note.metadataString("bucket")
+        return val.isEmpty ? nil : val
+    }
+    private var industryLabel: String? {
+        let val = note.metadataString("industry")
+        return val.isEmpty ? nil : val
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

@@ -101,14 +101,18 @@ struct UnattributedEntriesView: View {
             await MainActor.run {
                 entries = response.results.map { result in
                     UnattributedEntry(
-                        id: result.metadata["brain_id"] ?? UUID().uuidString,
+                        id: result.metadataString("brain_id").isEmpty ? UUID().uuidString : result.metadataString("brain_id"),
                         text: result.text,
-                        date: result.metadata["stored_at"] ?? "",
-                        source: result.metadata["source_type"] ?? "unknown"
+                        date: result.metadataString("stored_at"),
+                        source: result.metadataString("source_type").isEmpty ? "unknown" : result.metadataString("source_type")
                     )
                 }
             }
         } catch {
+            print("DEBUG UnattributedEntriesView error: \(error)")
+            if let decodingError = error as? DecodingError {
+                print("DEBUG Decoding error details: \(decodingError)")
+            }
             await MainActor.run {
                 errorMessage = "Failed to load entries: \(error.localizedDescription)"
             }

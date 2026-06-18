@@ -22,9 +22,14 @@ final class AppSettings: ObservableObject {
     static let defaultServerURL = "https://revbo-engine-production.up.railway.app"
 
     // ── Persisted settings ────────────────────────────────────────────────────
+    // Use App Group for sharing with Share Extension
+    private static let appGroupDefaults = UserDefaults(suiteName: "group.com.robwalter.revbo")
 
     @Published var serverURL: String {
-        didSet { UserDefaults.standard.set(serverURL, forKey: Keys.serverURL) }
+        didSet {
+            UserDefaults.standard.set(serverURL, forKey: Keys.serverURL)
+            AppSettings.appGroupDefaults?.set(serverURL, forKey: "revbo.serverURL")
+        }
     }
 
     // MARK: - Permanent User Identity
@@ -34,10 +39,13 @@ final class AppSettings: ObservableObject {
     /// (as long as the Keychain item persists).
     var userID: String {
         if let existing = readKeychain(Keys.userID) {
+            // Also sync to App Group for Share Extension
+            AppSettings.appGroupDefaults?.set(existing, forKey: "revbo.userID")
             return existing
         }
         let newID = UUID().uuidString
         saveKeychain(Keys.userID, value: newID)
+        AppSettings.appGroupDefaults?.set(newID, forKey: "revbo.userID")
         return newID
     }
 
@@ -46,6 +54,10 @@ final class AppSettings: ObservableObject {
     private init() {
         serverURL = UserDefaults.standard.string(forKey: Keys.serverURL)
                     ?? AppSettings.defaultServerURL
+        // Sync to App Group on init
+        AppSettings.appGroupDefaults?.set(serverURL, forKey: "revbo.serverURL")
+        // Ensure userID is synced
+        _ = userID
     }
 
     // MARK: - Helpers

@@ -217,6 +217,24 @@ final class RevBoAPI: ObservableObject {
         return try await send(request)
     }
 
+    // MARK: - Missing Links
+
+    /// Generate human-readable summary for an unattributed brain entry.
+    func getMissingLinkSummary(brainId: String) async throws -> MissingLinkSummaryResponse {
+        let url = try endpoint("/v1/missing-links/summary/\(brainId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        return try await send(request)
+    }
+
+    /// Get count of unattributed entries needing attention (≥30% probability).
+    func getMissingLinksCount() async throws -> MissingLinksCountResponse {
+        let url = try endpoint("/v1/missing-links/count")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        return try await send(request)
+    }
+
     /// Generate a pre-meeting prep brief (contact snapshots + MEDDIC/BANT + questions).
     func meetingPrep(_ request: MeetingPrepRequest) async throws -> MeetingPrepResponse {
         let url = try endpoint("/v1/meeting/prep")
@@ -566,6 +584,20 @@ extension RevBoAPI {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(req)
+        return try await send(request)
+    }
+
+    /// Enrich user profile from LinkedIn URL (auto-populate work history)
+    func enrichProfileFromLinkedIn(linkedInURL: String) async throws -> ProfileResponse {
+        let url = try endpoint("/v1/profile/enrich-linkedin")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        struct EnrichRequest: Encodable {
+            let linkedin_url: String
+        }
+        request.httpBody = try JSONEncoder().encode(EnrichRequest(linkedin_url: linkedInURL))
         return try await send(request)
     }
 }

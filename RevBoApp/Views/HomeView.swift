@@ -24,6 +24,12 @@ struct HomeView: View {
     // ── My Development sheet ──────────────────────────────────────────────────
     @State private var showMyDevelopment = false
 
+    // ── Cloud Storage Guide ───────────────────────────────────────────────────
+    @State private var showCloudStorageGuide = false
+
+    // ── Missing Links count ───────────────────────────────────────────────────
+    @State private var missingLinksCount: Int = 0
+
     // ── Routes ────────────────────────────────────────────────────────────────
     enum Route: Hashable {
         case contacts
@@ -31,6 +37,7 @@ struct HomeView: View {
         case ask(String)
         case note(String)
         case scan, listen, importFile
+        case missingLinks
     }
 
     // ── Brand gradient (Orange → Amber → Carolina Blue) ───────────────────────
@@ -81,18 +88,29 @@ struct HomeView: View {
                             .padding(.horizontal, 20)
                             .padding(.top, 10)
 
+                        // ── Quick-capture strip ───────────────────────────────
+                        HStack(spacing: 24) {
+                            QuickCaptureButton(symbol: "camera.viewfinder", label: "Scan")   { navPath.append(Route.scan) }
+                            QuickCaptureButton(symbol: "mic.fill",          label: "Listen") { navPath.append(Route.listen) }
+                        }
+                        .padding(.top, 20)
+
+                        // ── Upcoming meetings ─────────────────────────────────
+                        UpcomingMeetingsStrip()
+                            .padding(.top, 20)
+
                         // ── Onboarding welcome card ───────────────────────────
                         if !onboarding.hasSeenOnboarding {
                             OnboardingWelcomeCard(service: onboarding)
                                 .padding(.horizontal, 20)
-                                .padding(.top, 8)
+                                .padding(.top, 20)
                         }
 
                         // ── Daily nudge card ──────────────────────────────────
                         if onboarding.isNudgePeriodActive {
                             DailyNudgeCard(service: onboarding)
                                 .padding(.horizontal, 20)
-                                .padding(.top, onboarding.hasSeenOnboarding ? 8 : 0)
+                                .padding(.top, onboarding.hasSeenOnboarding ? 20 : 8)
                         }
 
                         // ── Primary cards ─────────────────────────────────────
@@ -105,25 +123,26 @@ struct HomeView: View {
                             }
                         }
                         .padding(.horizontal, 20)
-                        .padding(.top, 28)
+                        .padding(.top, 24)
 
-                        // ── My Development card ───────────────────────────────
-                        HomeCard(symbol: "person.fill.checkmark", label: "My Development") {
-                            showMyDevelopment = true
+                        // ── My Development + Missing Links row ────────────────
+                        HStack(spacing: 14) {
+                            HomeCard(symbol: "person.fill.checkmark", label: "My Development") {
+                                showMyDevelopment = true
+                            }
+
+                            if missingLinksCount > 0 {
+                                HomeCardWithBadge(
+                                    symbol: "link.circle.fill",
+                                    label: "Missing Links",
+                                    badge: missingLinksCount
+                                ) {
+                                    navPath.append(Route.missingLinks)
+                                }
+                            }
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 14)
-
-                        // ── Quick-capture strip ───────────────────────────────
-                        HStack(spacing: 24) {
-                            QuickCaptureButton(symbol: "camera.viewfinder", label: "Scan")   { navPath.append(Route.scan) }
-                            QuickCaptureButton(symbol: "mic.fill",          label: "Listen") { navPath.append(Route.listen) }
-                        }
-                        .padding(.top, 24)
-
-                        // ── Upcoming meetings ─────────────────────────────────
-                        UpcomingMeetingsStrip()
-                            .padding(.top, 28)
 
                         Spacer(minLength: 48)
                     }
@@ -139,18 +158,25 @@ struct HomeView: View {
                 case .scan:           ScanDeckView()
                 case .listen:         QuickDictateView()
                 case .importFile:     ImportFileView()
+                case .missingLinks:   MissingLinksView()
                 }
+            }
+            .task {
+                await loadMissingLinksCount()
             }
         }
         // ── Add to Brain sheet ────────────────────────────────────────────────
         .sheet(isPresented: $showAddToBrain) {
-            AddToBrainSheet { route in
-                showAddToBrain = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    navPath.append(route)
-                }
-            }
-            .presentationDetents([.height(300)])
+            AddToBrainSheet(
+                onSelect: { route in
+                    showAddToBrain = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        navPath.append(route)
+                    }
+                },
+                showCloudStorageGuide: $showCloudStorageGuide
+            )
+            .presentationDetents([.height(350)])
             .presentationDragIndicator(.visible)
             .presentationBackground(Color.revboSurface2)
         }
@@ -172,6 +198,25 @@ struct HomeView: View {
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
+        }
+        // ── Cloud Storage Guide ───────────────────────────────────────────────
+        .sheet(isPresented: $showCloudStorageGuide) {
+            CloudStorageGuideView()
+        }
+    }
+
+    // MARK: - Missing Links Count
+
+    private func loadMissingLinksCount() async {
+        let api = RevBoAPI()
+        do {
+            let response = try await api.getMissingLinksCount()
+            await MainActor.run {
+                missingLinksCount = response.count
+            }
+        } catch {
+            // Silent fail - count is just for badge, not critical
+            print("DEBUG Failed to load missing links count: \(error)")
         }
     }
 
@@ -430,6 +475,50 @@ private struct HomeCard: View {
     }
 }
 
+// MARK: - Home Card with Badge
+
+private struct HomeCardWithBadge: View {
+    let symbol: String
+    let label:  String
+    let badge:  Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 14) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: symbol)
+                        .font(.system(size: 30, weight: .semibold))
+                        .foregroundStyle(Color.revboOrange)
+
+                    // Badge
+                    Text("\(badge)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.revboOrange)
+                        .clipShape(Capsule())
+                        .offset(x: 12, y: -8)
+                }
+
+                Text(label)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.revboText)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 30)
+            .background(Color.revboSurface2)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.revboOrange.opacity(0.3), lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Quick capture button
 
 private struct QuickCaptureButton: View {
@@ -461,7 +550,8 @@ private struct QuickCaptureButton: View {
 // MARK: - Add to Brain sheet
 
 private struct AddToBrainSheet: View {
-    let onSelect: (HomeView.Route) -> Void
+    var onSelect: (HomeView.Route) -> Void
+    @Binding var showCloudStorageGuide: Bool
 
     private let options: [(String, String, HomeView.Route)] = [
         ("note.text",         "Note",   .note("")),
@@ -471,7 +561,7 @@ private struct AddToBrainSheet: View {
     ]
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             Text("Add to Brain")
                 .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(Color.revboText)
@@ -501,6 +591,21 @@ private struct AddToBrainSheet: View {
                 }
             }
             .padding(.horizontal, 20)
+
+            // Cloud Storage helper
+            Button {
+                showCloudStorageGuide = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "cloud.fill")
+                        .font(.system(size: 13))
+                    Text("Import from Google Drive / Dropbox?")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(Color.revboOrange)
+                .padding(.vertical, 8)
+            }
+            .padding(.top, 4)
 
             Spacer()
         }
